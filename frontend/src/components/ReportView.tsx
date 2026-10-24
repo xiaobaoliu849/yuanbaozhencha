@@ -60,20 +60,30 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
         <p className={`mood v-${report.verdict}`}>{MOOD[report.verdict]}</p>
         <h1>{cleanHeadline(report.headline || report.title)}</h1>
         <p className="meta">{new Date(report.created_at).toLocaleString('zh-CN')} · 搜索由元宝搜索提供</p>
-        <div className="stats">
-          <div><b>{report.claims.length}</b><small>条说法</small></div>
-          <div><b>{searches}</b><small>次搜索</small></div>
-          <div><b>{rounds}</b><small>轮比对</small></div>
-          <div><b>{cited.length}<em>/{report.sources.length}</em></b><small>引用来源</small></div>
-        </div>
       </div>
 
-      <blockquote className="readable">
-        <small>{report.had_image ? '从截图里识别到的内容' : '要查的内容'}</small>
-        {report.readable_text}
-      </blockquote>
-
-      {report.off_limits && <p className="note box">这类内容不在查证范围内：{report.off_limits_reason}</p>}
+      {report.claims.length > 0 && (
+        <section className="verdicts">
+          <h2>结论速览</h2>
+          <ul>
+            {report.claims.map((c) => (
+              <li key={c.index}>
+                <a
+                  href={`#claim-${c.index}`}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    document.getElementById(`claim-${c.index}`)?.scrollIntoView({ behavior: 'smooth' })
+                  }}
+                >
+                  <span className={`mini-stamp v-${c.verdict}`}>{c.verdict_label}</span>
+                  <span className="vt">{c.claim}</span>
+                  <small>把握 {c.confidence}%</small>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {report.family_message && (
         <div className="family">
@@ -81,6 +91,20 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
           <p>{report.family_message}</p>
         </div>
       )}
+
+      <div className="stats">
+        <div><b>{report.claims.length}</b><small>条说法</small></div>
+        <div><b>{searches}</b><small>次搜索</small></div>
+        <div><b>{rounds}</b><small>轮比对</small></div>
+        <div><b>{cited.length}<em>/{report.sources.length}</em></b><small>引用来源</small></div>
+      </div>
+
+      <details className="readable" open={report.readable_text.length < 120}>
+        <summary>{report.had_image ? '从截图里识别到的内容' : '要查的内容'}<span className="more">（点开看全文）</span></summary>
+        {report.readable_text}
+      </details>
+
+      {report.off_limits && <p className="note box">这类内容不在查证范围内：{report.off_limits_reason}</p>}
 
       {report.claims.map((c, i) => (
         <div key={c.index} className="rise" style={{ animationDelay: `${0.15 + i * 0.12}s` }}>
@@ -165,7 +189,7 @@ function ClaimCard({ c, byId, reportId }: { c: ClaimResult; byId: Map<string, So
   }
 
   return (
-    <section className={`claim v-${c.verdict}-edge`}>
+    <section id={`claim-${c.index}`} className={`claim v-${c.verdict}-edge`}>
       <div className="claim-head">
         <span className="num">{c.index + 1}</span>
         <h3>{c.claim}</h3>
