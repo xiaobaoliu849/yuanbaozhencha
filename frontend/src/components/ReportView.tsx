@@ -32,6 +32,8 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
   const [report, setReport] = useState<Report | null>(initial)
   const [err, setErr] = useState('')
   const [copied, setCopied] = useState(false)
+  const [sheet, setSheet] = useState(false)
+  const [focus, setFocus] = useState('')
 
   useEffect(() => {
     if (initial) return
@@ -39,6 +41,13 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
   }, [id, initial])
 
   const byId = useMemo(() => new Map((report?.sources ?? []).map((s) => [s.id, s])), [report])
+
+  function showSource(id: string) {
+    if (window.matchMedia('(max-width: 1099px)').matches) setSheet(true)
+    setFocus(id)
+    setTimeout(() => document.getElementById(`src-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60)
+    setTimeout(() => setFocus(''), 2200)
+  }
 
   if (err) return <p className="error">{err}</p>
   if (!report) return <p className="loading">正在打开报告…</p>
@@ -49,6 +58,7 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
   const rounds = report.claims.reduce((n, c) => n + c.chain.length, 0)
 
   return (
+    <div className="report-layout">
     <article className="report">
       <nav className="crumbs">
         <button className="back" onClick={() => go('/')}>← 返回首页</button>
@@ -104,7 +114,7 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
 
       {report.claims.map((c, i) => (
         <div key={c.index} id={`claim-${c.index}`} className="rise" style={{ animationDelay: `${0.15 + i * 0.12}s` }}>
-          <ClaimCard c={c} byId={byId} reportId={report.id} />
+          <ClaimCard c={c} byId={byId} reportId={report.id} onSource={showSource} />
         </div>
       ))}
 
@@ -119,20 +129,11 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
         </div>
       )}
 
-      {report.sources.length > 0 && (
-        <section className="sources">
-          <h2>全部来源</h2>
-          <p className="hint">元宝搜索返回的所有网页。标「已引用」的是结论依据。</p>
-          <ol>
-            {[...cited, ...report.sources.filter((s) => !s.cited)].map((s) => (
-              <SourceRow key={s.id} s={s} />
-            ))}
-          </ol>
-        </section>
-      )}
-
       <div className="dock">
         <button className="ghost" onClick={() => go('/')}>🔍 再查一条</button>
+        {report.sources.length > 0 && (
+          <button className="ghost sheet-btn" onClick={() => setSheet(true)}>🔗 来源 {report.sources.length}</button>
+        )}
         <button
           className="primary"
           onClick={async () => {
@@ -156,6 +157,44 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
         </button>
       </div>
     </article>
+
+    {report.sources.length > 0 && (
+      <>
+        <div className={`sheet-mask ${sheet ? 'on' : ''}`} onClick={() => setSheet(false)} />
+        <aside className={`side-sources ${sheet ? 'on' : ''}`} aria-label="全部来源">
+          <SourceList sources={report.sources} focus={focus} onClose={() => setSheet(false)} />
+        </aside>
+      </>
+    )}
+    </div>
+  )
+}
+
+function SourceList({ sources, focus, onClose }: { sources: Source[]; focus: string; onClose: () => void }) {
+  const cited = sources.filter((s) => s.cited)
+  const [all, setAll] = useState(cited.length === 0)
+  // A source clicked in the chain may not be cited: switch to the full list so it can be shown.
+  useEffect(() => {
+    if (focus && !cited.some((s) => s.id === focus)) setAll(true)
+  }, [focus]) // eslint-disable-line react-hooks/exhaustive-deps
+  const shown = all ? [...cited, ...sources.filter((s) => !s.cited)] : cited
+  return (
+    <>
+      <div className="side-head">
+        <h2>🔗 查证来源</h2>
+        <button className="sheet-close" onClick={onClose} aria-label="关闭">✕</button>
+      </div>
+      <p className="hint">全部来自元宝搜索，点标题打开原网页。</p>
+      <div className="chips">
+        <button className={all ? '' : 'on'} onClick={() => setAll(false)}>结论依据 {cited.length}</button>
+        <button className={all ? 'on' : ''} onClick={() => setAll(true)}>全部 {sources.length}</button>
+      </div>
+      <ol className="src-list">
+        {shown.map((s) => (
+          <SourceRow key={s.id} s={s} focus={focus === s.id} />
+        ))}
+      </ol>
+    </>
   )
 }
 
@@ -176,24 +215,24 @@ function Readable({ text, fromImage }: { text: string; fromImage: boolean }) {
   )
 }
 
-function SourceRow({ s }: { s: Source }) {
+function SourceRow({ s, focus }: { s: Source; focus: boolean }) {
   return (
-    <li id={`src-${s.id}`} className={s.cited ? 'cited' : ''}>
-      <span className="sid">{s.id}</span>
-      <span>
+    <li id={`src-${s.id}`} className={`src-card ${s.cited ? 'cited' : ''} ${focus ? 'flash' : ''}`}>
+      <div className="src-top">
+        <span className="sid">{s.id}</span>
         {s.tier && <span className={`tier tier-${s.tier}`}>{s.tier_label}</span>}
-        <a href={s.url} target="_blank" rel="noreferrer">{s.title}</a>
-      </span>
+        {s.cited && <b className="cited-tag">已引用</b>}
+      </div>
+      <a href={s.url} target="_blank" rel="noreferrer">{s.title} ↗</a>
       <span className="src-meta">
         {s.site || host(s.url)}
         {s.date && ` · ${s.date.slice(0, 10)}`}
-        {s.cited && <b> · 已引用</b>}
       </span>
     </li>
   )
 }
 
-function ClaimCard({ c, byId, reportId }: { c: ClaimResult; byId: Map<string, Source>; reportId: string }) {
+function ClaimCard({ c, byId, reportId, onSource }: { c: ClaimResult; byId: Map<string, Source>; reportId: string; onSource: (id: string) => void }) {
   const [chainOpen, setChainOpen] = useState(true)
   const [watchOpen, setWatchOpen] = useState(false)
   const [token, setToken] = useState('')
@@ -285,7 +324,16 @@ function ClaimCard({ c, byId, reportId }: { c: ClaimResult; byId: Map<string, So
                     {s.sources.length > 0 && (
                       <span className="chain-src">
                         {s.sources.map((sid) => (
-                          <a key={sid} href={`#src-${sid}`}>{sid}</a>
+                          <a
+                            key={sid}
+                            href={`#src-${sid}`}
+                            onClick={(e) => {
+                              e.preventDefault()
+                              onSource(sid)
+                            }}
+                          >
+                            {sid}
+                          </a>
                         ))}
                       </span>
                     )}
