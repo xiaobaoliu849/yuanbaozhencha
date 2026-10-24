@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { LABEL, compressImage, getRecent, type RecentReport } from '../api'
+import { LABEL, cleanHeadline, compressImage, getRecent, type RecentReport } from '../api'
 import { go } from '../App'
 
 const EXAMPLES = [
@@ -110,7 +110,7 @@ export default function Home({ onStart, error }: Props) {
               <li key={r.id}>
                 <a href={`/r/${r.id}`} onClick={(e) => { e.preventDefault(); go(`/r/${r.id}`) }}>
                   <span className={`mini-stamp v-${r.verdict}`}>{LABEL[r.verdict]}</span>
-                  <span className="recent-title">{r.headline}</span>
+                  <span className="recent-title">{cleanHeadline(r.headline)}</span>
                   <small>{r.sources} 个来源</small>
                 </a>
               </li>

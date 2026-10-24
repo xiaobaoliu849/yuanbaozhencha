@@ -187,3 +187,25 @@ h2 { font-size: 18px; margin: 0; }
 .recent a { display: flex; align-items: center; gap: 10px; padding: 10px 12px; text-decoration: none; font-size: 14px; }
 .recent-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .recent small { color: var(--muted); font-size: 11px; white-space: nowrap; }
+
+/* report delight */
+.crumbs { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; font-size: 12px; color: var(--muted); }
+.back { background: var(--card); border: 1px solid var(--line); color: var(--ink); border-radius: 999px; padding: 6px 14px; font-size: 14px; }
+.slam { animation: slam 0.55s cubic-bezier(.2,1.6,.4,1) both; }
+@keyframes slam { 0% { opacity: 0; transform: rotate(-18deg) scale(2.6); } 70% { opacity: 1; transform: rotate(-4deg) scale(0.92); } 100% { transform: rotate(-6deg) scale(1); } }
+.mood { margin: 14px 0 0; font-weight: 700; color: var(--v); animation: fadein 0.4s 0.45s both; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 4px 0 18px; }
+.stats div { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 4px; text-align: center; }
+.stats b { display: block; font-size: 22px; line-height: 1.1; }
+.stats em { font-style: normal; font-size: 13px; color: var(--muted); font-weight: 500; }
+.stats small { font-size: 11px; color: var(--muted); }
+.rise { animation: rise 0.5s both; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+.watch-hint { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px dashed var(--accent); border-radius: 14px; padding: 12px 14px; margin: 6px 0 14px; }
+.watch-hint .eye { font-size: 26px; }
+.watch-hint p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.watch-hint > div { flex: 1; }
+.dock { position: sticky; bottom: 0; display: flex; gap: 10px; justify-content: center; padding: 12px 0 calc(12px + env(safe-area-inset-bottom)); margin-top: 24px; background: linear-gradient(to top, var(--paper) 70%, transparent); }
+.dock button { flex: 1; max-width: 220px; background-color: var(--card); }
+.dock .primary { background: var(--ink); }
+@media (max-width: 480px) { .watch-hint { flex-wrap: wrap; } }

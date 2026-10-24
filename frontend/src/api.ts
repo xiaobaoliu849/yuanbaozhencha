@@ -206,3 +206,8 @@ export function compressImage(file: File): Promise<{ b64: string; mime: string; 
     img.src = url
   })
 }
+
+/** The stamp already shows the verdict, so drop a leading 「不实：」 from the headline. */
+export function cleanHeadline(h: string) {
+  return h.replace(/^(基本|大概|可能)?(不实|属实|部分属实|查不到|谣言|真的|假的)[：:，,\s]*/, '') || h
+}

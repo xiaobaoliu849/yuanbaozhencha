@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { LABEL, addWatch, getReport, ownerId, type ClaimResult, type Report, type Source } from '../api'
+import { LABEL, addWatch, cleanHeadline, getReport, ownerId, type ClaimResult, type Report, type Source } from '../api'
 import { go } from '../App'
 
 const STANCE = { support: '支持', refute: '反驳', context: '背景' }
+const MOOD = { true: '✅ 是真的，可以放心转', false: '🙅 是谣言，别再转了', mixed: '🤔 有真有假，要看情况', unknown: '🔍 暂时查不清，先别急着信' }
 
 function host(url: string) {
   try {
@@ -49,13 +50,22 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
 
   return (
     <article className="report">
+      <nav className="crumbs">
+        <button className="back" onClick={() => go('/')}>← 返回首页</button>
+        <span>结案报告 · No.{report.id}</span>
+      </nav>
+
       <div className="report-head">
-        <span className={`stamp v-${report.verdict}`}>{report.verdict_label}</span>
-        <h1>{report.headline || report.title}</h1>
-        <p className="meta">
-          {new Date(report.created_at).toLocaleString('zh-CN')} · {report.claims.length} 条说法 · 搜索 {searches} 次 ·{' '}
-          {rounds} 轮比对 · {report.sources.length} 个来源，引用 {cited.length} 个
-        </p>
+        <span className={`stamp slam v-${report.verdict}`}>{report.verdict_label}</span>
+        <p className={`mood v-${report.verdict}`}>{MOOD[report.verdict]}</p>
+        <h1>{cleanHeadline(report.headline || report.title)}</h1>
+        <p className="meta">{new Date(report.created_at).toLocaleString('zh-CN')} · 搜索由元宝搜索提供</p>
+        <div className="stats">
+          <div><b>{report.claims.length}</b><small>条说法</small></div>
+          <div><b>{searches}</b><small>次搜索</small></div>
+          <div><b>{rounds}</b><small>轮比对</small></div>
+          <div><b>{cited.length}<em>/{report.sources.length}</em></b><small>引用来源</small></div>
+        </div>
       </div>
 
       <blockquote className="readable">
@@ -69,23 +79,25 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
         <div className="family">
           <small>可以直接发到家族群</small>
           <p>{report.family_message}</p>
-          <button
-            className="primary"
-            onClick={async () => {
-              if (await copy(`${report.family_message}\n查证报告：${link}`)) {
-                setCopied(true)
-                setTimeout(() => setCopied(false), 2000)
-              }
-            }}
-          >
-            {copied ? '已复制 ✓' : '复制这段话 + 报告链接'}
-          </button>
         </div>
       )}
 
-      {report.claims.map((c) => (
-        <ClaimCard key={c.index} c={c} byId={byId} reportId={report.id} />
+      {report.claims.map((c, i) => (
+        <div key={c.index} className="rise" style={{ animationDelay: `${0.15 + i * 0.12}s` }}>
+          <ClaimCard c={c} byId={byId} reportId={report.id} />
+        </div>
       ))}
+
+      {report.claims.length > 0 && (
+        <div className="watch-hint">
+          <span className="eye">👁</span>
+          <div>
+            <b>这件事以后会变吗？</b>
+            <p>在上面任意一条说法下点「每天盯着这条」，我每天自动用元宝搜索重查一次，结论变了会在「我的盯梢」里标红提醒你。</p>
+          </div>
+          <button className="ghost small" onClick={() => go('/watch')}>我的盯梢</button>
+        </div>
+      )}
 
       {report.sources.length > 0 && (
         <section className="sources">
@@ -99,8 +111,21 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
         </section>
       )}
 
-      <div className="again">
-        <button className="ghost" onClick={() => go('/')}>再查一条</button>
+      <div className="dock">
+        <button className="ghost" onClick={() => go('/')}>🔍 再查一条</button>
+        {report.family_message && (
+          <button
+            className="primary"
+            onClick={async () => {
+              if (await copy(`${report.family_message}\n查证报告：${link}`)) {
+                setCopied(true)
+                setTimeout(() => setCopied(false), 2000)
+              }
+            }}
+          >
+            {copied ? '已复制 ✓' : '📋 复制给家人'}
+          </button>
+        )}
       </div>
     </article>
   )
