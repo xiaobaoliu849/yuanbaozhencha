@@ -35,9 +35,9 @@ call npm run build
 if errorlevel 1 (popd & goto :error)
 popd
 
-echo [3/3] Starting at http://localhost:8000  (close this window to stop)
-start "" http://localhost:8000
-%PY% -m uvicorn backend.main:app --port 8000
+echo [3/3] Starting at http://localhost:8011  (close this window to stop)
+start "" http://localhost:8011
+%PY% -m uvicorn backend.main:app --port 8011
 goto :fail
 
 :error

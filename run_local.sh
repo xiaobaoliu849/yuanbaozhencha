@@ -8,5 +8,5 @@ if [ ! -f .env ]; then
 fi
 python3 -m pip install -q -r requirements.txt
 (cd frontend && npm install --silent && npm run build)
-echo "启动：http://localhost:8000"
-python3 -m uvicorn backend.main:app --port 8000
+echo "启动：http://localhost:8011"
+python3 -m uvicorn backend.main:app --port 8011

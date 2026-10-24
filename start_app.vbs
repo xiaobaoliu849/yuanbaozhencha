@@ -6,7 +6,7 @@ Dim sh, fso, dir, port, url, i
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 dir = fso.GetParentFolderName(WScript.ScriptFullName)
-port = "8000"
+port = "8011"
 If WScript.Arguments.Count > 0 Then port = WScript.Arguments(0)
 url = "http://localhost:" & port
 

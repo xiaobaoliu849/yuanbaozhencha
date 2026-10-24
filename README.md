@@ -36,7 +36,7 @@ Windows 双击 `run_local.bat`，macOS / Linux 运行 `./run_local.sh`。第一�
 - `LLM_API_KEY`：Toklens（或任何 OpenAI 兼容接口）的 Key，接口地址填 `LLM_BASE_URL`
 - `GEMINI_API_KEY`（可选）：填了才能识别截图，也可以改填能看图的 `LLM_VISION_MODEL`
 
-然后打开 http://localhost:8000 。
+然后打开 http://localhost:8011 。
 
 跑单元测试：`pip install -r requirements-dev.txt`，然后 `python -m pytest`。
 
