@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: chade-xinde
+    runtime: docker
+    region: singapore
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: YUANBAO_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CRON_TOKEN
+        generateValue: true

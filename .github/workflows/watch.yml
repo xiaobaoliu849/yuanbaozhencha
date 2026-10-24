@@ -1,0 +1,19 @@
+# 持续盯梢：每天北京时间 8:00 叫醒服务并复查到期的盯梢。
+# 在仓库 Settings → Secrets 里加 APP_URL（如 https://xxx.up.railway.app）和 CRON_TOKEN。
+name: daily-watch
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+jobs:
+  recheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recheck due watches
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_TOKEN: ${{ secrets.CRON_TOKEN }}
+        run: |
+          if [ -z "$APP_URL" ]; then echo "APP_URL secret not set"; exit 0; fi
+          curl -fsS --retry 3 --retry-delay 20 --max-time 120 "$APP_URL/api/health"
+          curl -fsS --max-time 600 -X POST "$APP_URL/api/cron?token=$CRON_TOKEN"
