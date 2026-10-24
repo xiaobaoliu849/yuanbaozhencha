@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: chade-xinde
+    name: yuanbaozhencha
     runtime: docker
     region: singapore
     plan: free
