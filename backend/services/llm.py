@@ -19,7 +19,9 @@ from . import gemini
 logger = logging.getLogger(__name__)
 
 BASE_URL = os.getenv("LLM_BASE_URL", "https://hkg.toklens.ai/v1").rstrip("/")
-PREFER = ("deepseek-v4.1-flash", "deepseek-v4-flash", "deepseek", "glm")
+# v4-flash answers in ~1s; v4.1-flash thinks first and can take over a minute per call.
+PREFER = ("deepseek-v4-flash", "deepseek-v4.1-flash", "deepseek", "glm")
+CALL_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "20"))
 
 _client: httpx.AsyncClient | None = None
 _model: str | None = os.getenv("LLM_MODEL") or None
@@ -103,10 +105,27 @@ async def _chat(model: str, content: Any) -> dict[str, Any]:
         "response_format": {"type": "json_object"},
     }
     headers = {"Authorization": f"Bearer {_key()}", "Content-Type": "application/json"}
-    resp = await _http().post(f"{BASE_URL}/chat/completions", headers=headers, json=body)
+
+    async def post() -> httpx.Response:
+        # The upstream sometimes stalls for minutes and then 502s; give up early and try once more.
+        for attempt in range(2):
+            try:
+                resp = await _http().post(f"{BASE_URL}/chat/completions", headers=headers, json=body,
+                                          timeout=CALL_TIMEOUT)
+            except httpx.TimeoutException:
+                if attempt:
+                    raise RuntimeError(f"LLM {model} timed out twice ({CALL_TIMEOUT:.0f}s each)")
+                logger.warning("LLM %s timed out after %.0fs, retrying", model, CALL_TIMEOUT)
+                continue
+            if resp.status_code < 500 or attempt:
+                return resp
+            logger.warning("LLM %s %s, retrying", model, resp.status_code)
+        return resp
+
+    resp = await post()
     if resp.status_code == 400 and "response_format" in resp.text:
         body.pop("response_format")
-        resp = await _http().post(f"{BASE_URL}/chat/completions", headers=headers, json=body)
+        resp = await post()
     if resp.status_code != 200:
         raise RuntimeError(f"LLM {model} {resp.status_code}: {resp.text[:300]}")
     return _parse_json(resp.json()["choices"][0]["message"].get("content") or "")

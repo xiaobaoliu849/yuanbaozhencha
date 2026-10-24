@@ -38,7 +38,11 @@ Windows 双击 `run_local.bat`，macOS / Linux 运行 `./run_local.sh`。第一�
 
 然后打开 http://localhost:8000 。
 
+装好之后，Windows 上以后双击 `start_app.vbs` 就行：后台启动、不弹黑窗口，直接打开一个独立的应用窗口；双击 `stop_app.vbs` 关闭。
+
 ## 部署
+
+- **阿里云等国内服务器（当前线上）**：在 Windows 上运行 `powershell -ExecutionPolicy Bypass -File deploy\aliyun\deploy.ps1 -Server <IP> -Key <私钥> [-ServerName <IP或域名>]`，会打包上传并运行 `deploy/aliyun/setup.sh`（不用 Docker，pip 走阿里云镜像，systemd 开机自启；服务器上已有 nginx 时用 `-ServerName` 走反向代理）。
 
 用 Toklens 香港节点时国内外服务器都行；用 Gemini 看截图则需要境外服务器。数据存在 SQLite，路径由 `DATA_DIR` 决定（Docker 里默认 `/data`）。
 
@@ -54,7 +58,7 @@ Windows 双击 `run_local.bat`，macOS / Linux 运行 `./run_local.sh`。第一�
 | `YUANBAO_API_KEY` | 元宝搜索 API Key（也认 `TENCENTCLOUD_WSA_APIKEY`） |
 | `LLM_API_KEY` | OpenAI 兼容接口的 Key（不填则全用 Gemini） |
 | `LLM_BASE_URL` | 接口地址，默认 `https://hkg.toklens.ai/v1` |
-| `LLM_MODEL` | 模型名；不填自动选第一个 DeepSeek 模型，可用模型见 `/api/models` |
+| `LLM_MODEL` | 模型名；不填自动选 deepseek-v4-flash，可用模型见 `/api/models` |
 | `LLM_VISION_MODEL` | 能看图的模型名，用于截图识别（没有 Gemini 时） |
 | `GEMINI_API_KEY` | 可选，用来识别截图 |
 | `PUBLIC_URL` | 对外地址，用于提醒里的报告链接 |

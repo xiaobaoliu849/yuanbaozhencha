@@ -288,7 +288,7 @@ async def run(text: str, image_b64: str | None, mime: str, emit: Emit) -> dict[s
         report["headline"] = str(s.get("headline", ""))
         report["family_message"] = str(s.get("family_message", ""))
     except Exception as exc:  # noqa: BLE001 — the report stands without the summary
-        logger.warning("summary failed: %s", exc)
+        logger.warning("summary failed: %r", exc)
         report["headline"] = f"{report['verdict_label']}：{p['title']}"
     return report
 
