@@ -133,29 +133,27 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
 
       <div className="dock">
         <button className="ghost" onClick={() => go('/')}>🔍 再查一条</button>
-        {report.family_message && (
-          <button
-            className="primary"
-            onClick={async () => {
-              const text = `${report.family_message}\n查证报告：${link}`
-              // The system share sheet only exists on HTTPS; otherwise copy the text for pasting.
-              if (navigator.share) {
-                try {
-                  await navigator.share({ title: '查得到，信得过', text })
-                  return
-                } catch (e) {
-                  if (e instanceof DOMException && e.name === 'AbortError') return
-                }
+        <button
+          className="primary"
+          onClick={async () => {
+            const text = report.family_message || `${report.verdict_label}：${cleanHeadline(report.headline || report.title)}`
+            // The system share sheet only exists on HTTPS (mostly phones); otherwise copy text + link.
+            if (navigator.share) {
+              try {
+                await navigator.share({ title: '查得到，信得过', text, url: link })
+                return
+              } catch (e) {
+                if (e instanceof DOMException && e.name === 'AbortError') return
               }
-              if (await copy(text)) {
-                setCopied(true)
-                setTimeout(() => setCopied(false), 2000)
-              }
-            }}
-          >
-            {copied ? '已复制，去粘贴吧 ✓' : '📤 分享'}
-          </button>
-        )}
+            }
+            if (await copy(`${text}\n查证报告：${link}`)) {
+              setCopied(true)
+              setTimeout(() => setCopied(false), 2500)
+            }
+          }}
+        >
+          {copied ? '已复制，去粘贴分享 ✓' : '📤 分享'}
+        </button>
       </div>
     </article>
   )
