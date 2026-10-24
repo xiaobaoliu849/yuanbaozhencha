@@ -36,6 +36,7 @@ export interface Source {
   cited: boolean
   tier: Tier
   tier_label: string
+  digest?: boolean
 }
 
 export interface Evidence {
@@ -55,12 +56,15 @@ export interface Round {
   evidence?: number
   verified?: number
   guard?: boolean
+  caution?: boolean
   next_reason?: string
 }
 
 export interface ClaimResult {
   index: number
   claim: string
+  /** Can the answer change over time? Missing on reports made before the flag existed. */
+  changes?: boolean
   verdict: Verdict
   verdict_label: string
   confidence: number
@@ -68,6 +72,7 @@ export interface ClaimResult {
   conflicts: string
   evidence: Evidence[]
   guard: string
+  caution?: string
   chain: Round[]
   searched: string[]
   checked_at: string
@@ -88,6 +93,7 @@ export interface Report {
   verdict_label: string
   off_limits: boolean
   off_limits_reason: string
+  total_facts?: number
 }
 
 export type LiveEvent =

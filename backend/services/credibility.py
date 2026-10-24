@@ -26,6 +26,21 @@ _SELF = ("mp.weixin.qq.com", "zhihu.com", "baijiahao.baidu.com", "toutiao.com", 
 _OFFICIAL_WORDS = ("人民政府", "卫健委", "卫生健康委员会", "市场监管", "公安", "国务院", "部官网", "管理局", "疾控")
 
 
+_DIGEST_WORDS = ("日报", "周报", "早报", "速递", "速览", "合集", "汇总", "盘点", "一周",
+                 "daily", "weekly", "digest", "roundup", "round-up", "this week", "newsletter", "briefing")
+
+
+def is_digest(url: str, title: str = "", tier_: str = "other") -> bool:
+    """News roundups and reposts: they repeat other people's headlines, so they are not independent evidence.
+
+    Only self-media and unknown sites qualify — 人民日报 or chinadaily are newspapers, not roundups.
+    """
+    if tier_ not in ("self", "other"):
+        return False
+    text = f"{title} {urlparse(url).netloc}".lower()
+    return any(w in text for w in _DIGEST_WORDS)
+
+
 def tier(url: str, site: str = "") -> str:
     parsed = urlparse(url)
     host = parsed.netloc.lower()

@@ -40,6 +40,31 @@ export default function Home({ onStart, error }: Props) {
     }
   }
 
+  function extractClipboardImage(dt?: DataTransfer | null): File | null {
+    if (!dt) return null
+    const fromFiles = Array.from(dt.files || []).find((x) => x.type.startsWith('image/'))
+    if (fromFiles) return fromFiles
+    for (const item of Array.from(dt.items || [])) {
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        const f = item.getAsFile()
+        if (f) return f
+      }
+    }
+    return null
+  }
+
+  useEffect(() => {
+    const onWindowPaste = (e: ClipboardEvent) => {
+      const f = extractClipboardImage(e.clipboardData)
+      if (f) {
+        e.preventDefault()
+        pick(f)
+      }
+    }
+    window.addEventListener('paste', onWindowPaste)
+    return () => window.removeEventListener('paste', onWindowPaste)
+  }, [])
+
   const ready = text.trim().length > 0 || image
 
   return (
@@ -57,8 +82,11 @@ export default function Home({ onStart, error }: Props) {
       <div
         className="input-card"
         onPaste={(e) => {
-          const f = Array.from(e.clipboardData.files).find((x) => x.type.startsWith('image/'))
-          if (f) pick(f)
+          const f = extractClipboardImage(e.clipboardData)
+          if (f) {
+            e.preventDefault()
+            pick(f)
+          }
         }}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {

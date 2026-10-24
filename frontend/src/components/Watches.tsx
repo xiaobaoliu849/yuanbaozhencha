@@ -48,7 +48,8 @@ export default function Watches({ onCount }: { onCount: (n: number) => void }) {
       )}
       {watches.map((w) => {
         const last = w.history[w.history.length - 1]
-        const prev = w.history.length > 1 ? w.history[w.history.length - 2] : null
+        // A change is confirmed over one or two checks, so look back for the verdict it changed from.
+        const prev = [...w.history].reverse().find((h) => h.verdict !== w.verdict) ?? null
         return (
           <div key={w.id} className={`watch ${w.changed ? 'changed' : ''}`}>
             <div className="claim-head">
@@ -57,8 +58,11 @@ export default function Watches({ onCount }: { onCount: (n: number) => void }) {
             </div>
             {w.changed && prev && (
               <p className="change">
-                ⚠ 结论变了：{LABEL[prev.verdict]} → {LABEL[last.verdict]}
+                ⚠ 结论变了：{LABEL[prev.verdict]} → {LABEL[w.verdict]}
               </p>
+            )}
+            {!w.changed && last && last.verdict !== w.verdict && (
+              <p className="hint">最近一次复查得到「{LABEL[last.verdict]}」，把握不高，再查一次确认后才算结论变化。</p>
             )}
             {last && <p className="explain">{last.explanation}</p>}
             {last?.sources.length > 0 && (

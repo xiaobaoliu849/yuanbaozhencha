@@ -19,9 +19,10 @@ from . import gemini
 logger = logging.getLogger(__name__)
 
 BASE_URL = os.getenv("LLM_BASE_URL", "https://hkg.toklens.ai/v1").rstrip("/")
-# v4-flash answers in ~1s; v4.1-flash thinks first and can take over a minute per call.
-PREFER = ("deepseek-v4-flash", "deepseek-v4.1-flash", "deepseek", "glm")
-CALL_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "35"))
+# v4.1-flash supports both fast mode (thinking disabled) and reasoning mode, plus multimodal vision.
+PREFER = ("deepseek-v4.1-flash", "deepseek-v4-flash", "deepseek", "glm")
+FALLBACK_MODEL = "deepseek-v4.1-flash"
+CALL_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "60"))
 
 _client: httpx.AsyncClient | None = None
 _model: str | None = os.getenv("LLM_MODEL") or None
@@ -43,12 +44,16 @@ def _key() -> str:
     return os.getenv("LLM_API_KEY", "")
 
 
+def _vision_model() -> str:
+    return os.getenv("LLM_VISION_MODEL") or (FALLBACK_MODEL if _key() else "")
+
+
 def provider() -> str:
     return "openai" if _key() else "gemini" if os.getenv("GEMINI_API_KEY") else "none"
 
 
 def can_read_images() -> bool:
-    return bool(os.getenv("GEMINI_API_KEY") or os.getenv("LLM_VISION_MODEL"))
+    return bool(os.getenv("GEMINI_API_KEY") or _vision_model())
 
 
 async def list_models() -> list[str]:
@@ -94,7 +99,7 @@ def _parse_json(text: str) -> dict[str, Any]:
     raise ValueError(f"model did not return JSON: {text[:200]}")
 
 
-async def _chat(model: str, content: Any) -> dict[str, Any]:
+async def _chat(model: str, content: Any, thinking: str = "low") -> dict[str, Any]:
     body: dict[str, Any] = {
         "model": model,
         "messages": [
@@ -104,30 +109,38 @@ async def _chat(model: str, content: Any) -> dict[str, Any]:
         "temperature": 0.2,
         "response_format": {"type": "json_object"},
     }
+    if thinking == "minimal":
+        body["thinking"] = {"type": "disabled"}
     headers = {"Authorization": f"Bearer {_key()}", "Content-Type": "application/json"}
 
     async def post() -> httpx.Response:
-        # The upstream sometimes stalls for minutes and then 502s; give up early and try once more.
+        # The upstream sometimes stalls or 503s; on retry, fall back to FALLBACK_MODEL with thinking disabled for speed.
         for attempt in range(2):
+            if attempt:
+                if body["model"] != FALLBACK_MODEL:
+                    logger.warning("Falling back from %s to %s", body["model"], FALLBACK_MODEL)
+                    body["model"] = FALLBACK_MODEL
+                body["thinking"] = {"type": "disabled"}
             try:
                 resp = await _http().post(f"{BASE_URL}/chat/completions", headers=headers, json=body,
                                           timeout=CALL_TIMEOUT)
             except httpx.TimeoutException:
                 if attempt:
-                    raise RuntimeError(f"LLM {model} timed out twice ({CALL_TIMEOUT:.0f}s each)")
-                logger.warning("LLM %s timed out after %.0fs, retrying", model, CALL_TIMEOUT)
+                    raise RuntimeError(f"LLM {body['model']} timed out twice ({CALL_TIMEOUT:.0f}s each)")
+                logger.warning("LLM %s timed out after %.0fs, retrying with thinking disabled", body["model"], CALL_TIMEOUT)
                 continue
             if resp.status_code < 500 or attempt:
                 return resp
-            logger.warning("LLM %s %s, retrying", model, resp.status_code)
+            logger.warning("LLM %s %s, retrying", body["model"], resp.status_code)
         return resp
 
     resp = await post()
-    if resp.status_code == 400 and "response_format" in resp.text:
-        body.pop("response_format")
+    if resp.status_code == 400 and ("response_format" in resp.text or "thinking" in resp.text):
+        body.pop("response_format", None)
+        body.pop("thinking", None)
         resp = await post()
     if resp.status_code != 200:
-        raise RuntimeError(f"LLM {model} {resp.status_code}: {resp.text[:300]}")
+        raise RuntimeError(f"LLM {body['model']} {resp.status_code}: {resp.text[:300]}")
     return _parse_json(resp.json()["choices"][0]["message"].get("content") or "")
 
 
@@ -136,13 +149,13 @@ async def generate_json(prompt: str, image_b64: str | None = None, mime: str = "
     if not _key():
         return await gemini.generate_json(prompt, image_b64, mime, thinking)
     if not image_b64:
-        return await _chat(await _text_model(), prompt)
+        return await _chat(await _text_model(), prompt, thinking=thinking)
     if os.getenv("GEMINI_API_KEY"):
         return await gemini.generate_json(prompt, image_b64, mime, thinking)
-    vision = os.getenv("LLM_VISION_MODEL")
+    vision = _vision_model()
     if not vision:
         raise NoVision("还没有配置能看图的模型，请把截图里的文字粘贴进来")
     return await _chat(vision, [
         {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{image_b64}"}},
         {"type": "text", "text": prompt},
-    ])
+    ], thinking=thinking)

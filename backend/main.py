@@ -69,8 +69,20 @@ _usage: dict[tuple[str, date], int] = defaultdict(int)
 
 
 def _client_ip(request: Request) -> str:
-    fwd = request.headers.get("x-forwarded-for", "")
-    return fwd.split(",")[0].strip() or (request.client.host if request.client else "?")
+    # Never read X-Forwarded-For here: clients can write anything in it. uvicorn's --proxy-headers
+    # fills request.client from it only when the request came through a trusted proxy (our nginx).
+    return request.client.host if request.client else "?"
+
+
+def _charge(request: Request) -> None:
+    """Count one search-heavy call (investigation or recheck) against the caller's daily limit."""
+    today = date.today()
+    for old in [k for k in _usage if k[1] != today]:
+        del _usage[old]
+    key = (_client_ip(request), today)
+    if _usage[key] >= DAILY_LIMIT:
+        raise HTTPException(429, "今天查得太多啦，明天再来吧")
+    _usage[key] += 1
 
 
 def _link(path: str, request: Request | None = None) -> str:
@@ -111,10 +123,7 @@ async def investigate_ep(body: InvestigateIn, request: Request) -> StreamingResp
         raise HTTPException(400, "当前没有配置能看图的模型，请把截图里的文字粘贴进来")
     if body.image_b64 and len(body.image_b64) > MAX_IMAGE_B64:
         raise HTTPException(413, "截图太大了，请压缩到 6MB 以内")
-    key = (_client_ip(request), date.today())
-    if _usage[key] >= DAILY_LIMIT:
-        raise HTTPException(429, "今天查得太多啦，明天再来吧")
-    _usage[key] += 1
+    _charge(request)
 
     queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
 
@@ -187,6 +196,9 @@ async def add_watch(body: WatchIn) -> dict[str, Any]:
         raise HTTPException(404, "报告或说法不存在")
     if len(body.owner) < 8:
         raise HTTPException(400, "bad owner")
+    # Reports from before the flag existed have no "changes" key; only an explicit False is refused.
+    if report["claims"][body.claim_index].get("changes") is False:
+        raise HTTPException(400, "这条说法的结论不会随时间变化，不需要盯梢")
     return store.add_watch(body.owner, body.report_id, report["claims"][body.claim_index], report["sources"],
                            body.push_token)
 
@@ -205,8 +217,10 @@ async def _recheck(w: dict[str, Any]) -> dict[str, Any]:
 
 
 @app.post("/api/watches/{wid}/recheck")
-async def recheck_watch(wid: str, body: OwnerIn) -> dict[str, Any]:
-    return await _recheck(_owned(wid, body.owner))
+async def recheck_watch(wid: str, body: OwnerIn, request: Request) -> dict[str, Any]:
+    w = _owned(wid, body.owner)
+    _charge(request)
+    return await _recheck(w)
 
 
 @app.post("/api/watches/{wid}/ack")

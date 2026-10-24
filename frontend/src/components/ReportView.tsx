@@ -104,6 +104,11 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
       )}
 
       <Readable text={report.readable_text} fromImage={report.had_image} />
+      {(report.total_facts ?? 0) > report.claims.length && (
+        <p className="note box">
+          原文里一共有 {report.total_facts} 条消息，一次只查 {report.claims.length} 条，挑了最值得查的。其他的可以单独粘贴进来再查。
+        </p>
+      )}
 
       {report.claims.map((c, i) => (
         <div key={c.index} id={`claim-${c.index}`} className="rise" style={{ animationDelay: `${0.15 + i * 0.12}s` }}>
@@ -111,12 +116,12 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
         </div>
       ))}
 
-      {report.claims.length > 0 && (
+      {report.claims.some((c) => c.changes !== false) && (
         <div className="watch-hint">
           <span className="eye">👁</span>
           <div>
             <b>这件事以后会变吗？</b>
-            <p>在上面任意一条说法下点「每天盯着这条」，我每天自动用元宝搜索重查一次，结论变了会在「我的盯梢」里标红提醒你。</p>
+            <p>会随时间变化的说法下面有「每天盯着这条」，点了以后我每天自动用元宝搜索重查一次，结论变了会在「我的盯梢」里标红提醒你。</p>
           </div>
           <button className="ghost small" onClick={() => go('/watch')}>我的盯梢</button>
         </div>
@@ -237,6 +242,7 @@ function SourceRow({ s, onPeek }: { s: Source; onPeek: (s: Source) => void }) {
       <div className="src-top">
         <span className="sid">{s.id}</span>
         {s.tier && <span className={`tier tier-${s.tier}`}>{s.tier_label}</span>}
+        {s.digest && <span className="tier tier-self">资讯汇总</span>}
         {s.cited && <b className="cited-tag">已引用</b>}
       </div>
       <a
@@ -289,6 +295,7 @@ function ClaimCard({ c, byId, reportId, onPeek }: {
       </div>
       <p className="explain">{c.explanation}</p>
       {c.guard && <p className="guard">🛡 {c.guard}</p>}
+      {c.caution && <p className="guard">⚠ {c.caution}</p>}
       {c.conflicts && <p className="conflicts">⚖ 来源有分歧：{c.conflicts}</p>}
 
       {c.evidence.length > 0 && (
@@ -312,6 +319,7 @@ function ClaimCard({ c, byId, reportId, onPeek }: {
                     }}
                   >
                     {s.tier && <span className={`tier tier-${s.tier}`}>{s.tier_label}</span>}
+                    {s.digest && <span className="tier tier-self">资讯汇总</span>}
                     [{s.id}] {s.site || host(s.url)}
                     {s.date && ` · ${s.date.slice(0, 10)}`} ↗
                   </a>
@@ -326,7 +334,7 @@ function ClaimCard({ c, byId, reportId, onPeek }: {
         <button className="ghost small" onClick={() => setChainOpen(!chainOpen)}>
           {chainOpen ? '收起' : '展开'}调查过程（{c.chain.length} 轮）
         </button>
-        {watchState === 'done' ? (
+        {c.changes === false ? null : watchState === 'done' ? (
           <button className="ghost small" onClick={() => go('/watch')}>已加入盯梢 ✓ 去看看</button>
         ) : (
           <button className="ghost small" onClick={() => setWatchOpen(!watchOpen)}>👁 每天盯着这条</button>
@@ -383,6 +391,7 @@ function ClaimCard({ c, byId, reportId, onPeek }: {
                   <li>
                     {r.evidence ? `✅ 原文核对：${r.verified}/${r.evidence} 句在网页里找到` : '✅ 原文核对：没有能引用的原文'}
                     {r.guard && <b className="guard-tag"> 核对不上，改判查不到</b>}
+                    {r.caution && <b className="guard-tag"> 只有资讯汇总，把握打折</b>}
                   </li>
                 )}
               </ul>

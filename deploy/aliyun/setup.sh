@@ -11,6 +11,9 @@ HOST=0.0.0.0
 # and add an nginx site for SERVER_NAME (the public IP or a domain) instead.
 SERVER_NAME=${SERVER_NAME:-}
 if [ -n "$SERVER_NAME" ]; then HOST=127.0.0.1; PORT=${APP_PORT:-8020}; fi
+# Trust X-Forwarded-For only from the local nginx; served directly, the client's own address is used.
+PROXY_ARGS="--no-proxy-headers"
+if [ -n "$SERVER_NAME" ]; then PROXY_ARGS="--proxy-headers --forwarded-allow-ips=127.0.0.1"; fi
 PIP_MIRROR=https://mirrors.aliyun.com/pypi/simple/
 
 ok_python() { "$1" -c 'import sys; sys.exit(sys.version_info < (3, 9))' 2>/dev/null; }
@@ -53,7 +56,7 @@ After=network-online.target
 [Service]
 WorkingDirectory=$APP_DIR
 Environment=DATA_DIR=$APP_DIR/data
-ExecStart=$APP_DIR/venv/bin/uvicorn backend.main:app --host $HOST --port $PORT --proxy-headers --forwarded-allow-ips=*
+ExecStart=$APP_DIR/venv/bin/uvicorn backend.main:app --host $HOST --port $PORT $PROXY_ARGS
 Restart=always
 
 [Install]

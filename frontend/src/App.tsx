@@ -42,8 +42,10 @@ export default function App() {
   async function start(text: string, image?: { b64: string; mime: string }) {
     setError('')
     setLive(emptyLive())
+    let ended = false
     try {
       await investigate({ text, image_b64: image?.b64, image_mime: image?.mime }, (e: LiveEvent) => {
+        if (e.type === 'done' || e.type === 'error') ended = true
         if (e.type === 'done') {
           setFresh(e.report)
           setLive(null)
@@ -55,6 +57,11 @@ export default function App() {
           setLive((s) => reduceLive(s ?? emptyLive(), e))
         }
       })
+      // The stream closed without a verdict (network drop, server restart): don't leave the spinner up.
+      if (!ended) {
+        setError('连接中断了，调查没有完成，请再试一次')
+        setLive(null)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
       setLive(null)

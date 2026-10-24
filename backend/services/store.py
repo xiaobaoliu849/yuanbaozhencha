@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+CONFIRM_CONFIDENCE = 60
 DATA_DIR = Path(os.getenv("DATA_DIR", Path(__file__).resolve().parent.parent.parent / "data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 _db = sqlite3.connect(DATA_DIR / "chade.db", check_same_thread=False)
@@ -125,12 +126,17 @@ def record_check(wid: str, result: dict[str, Any], sources: list[dict[str, Any]]
         raise KeyError(wid)
     entry = {"at": now(), "verdict": result["verdict"], "confidence": result["confidence"],
              "explanation": result["explanation"], "sources": _top_sources(result, sources)}
-    changed = result["verdict"] != w["verdict"]
+    # The model wobbles between runs, so a new verdict only counts once it is confident or comes out
+    # the same twice in a row; until then the watch keeps its old verdict and the check sits in history.
+    last = w["history"][-1]["verdict"] if w["history"] else None
+    changed = result["verdict"] != w["verdict"] and (result["confidence"] >= CONFIRM_CONFIDENCE
+                                                     or result["verdict"] == last)
+    verdict = result["verdict"] if changed else w["verdict"]
     history = (w["history"] + [entry])[-30:]
     with _lock:
         _db.execute(
             "UPDATE watches SET last_checked = ?, verdict = ?, changed = ?, history = ? WHERE id = ?",
-            (entry["at"], result["verdict"], 1 if changed or w["changed"] else 0,
+            (entry["at"], verdict, 1 if changed or w["changed"] else 0,
              json.dumps(history, ensure_ascii=False), wid),
         )
         _db.commit()
