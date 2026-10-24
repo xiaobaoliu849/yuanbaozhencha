@@ -60,54 +60,50 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
         <p className={`mood v-${report.verdict}`}>{MOOD[report.verdict]}</p>
         <h1>{cleanHeadline(report.headline || report.title)}</h1>
         <p className="meta">{new Date(report.created_at).toLocaleString('zh-CN')} · 搜索由元宝搜索提供</p>
+        <div className="stats">
+          <div><b>{report.claims.length}</b><small>条说法</small></div>
+          <div><b>{searches}</b><small>次搜索</small></div>
+          <div><b>{rounds}</b><small>轮比对</small></div>
+          <div><b>{cited.length}<em>/{report.sources.length}</em></b><small>引用来源</small></div>
+        </div>
       </div>
 
       {report.claims.length > 0 && (
         <section className="verdicts">
           <h2>结论速览</h2>
-          <ul>
+          <ol>
             {report.claims.map((c) => (
               <li key={c.index}>
                 <a
                   href={`#claim-${c.index}`}
                   onClick={(e) => {
                     e.preventDefault()
-                    document.getElementById(`claim-${c.index}`)?.scrollIntoView({ behavior: 'smooth' })
+                    document.getElementById(`claim-${c.index}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                   }}
                 >
                   <span className={`mini-stamp v-${c.verdict}`}>{c.verdict_label}</span>
-                  <span className="vt">{c.claim}</span>
-                  <small>把握 {c.confidence}%</small>
+                  <span className="v-claim">{c.claim}</span>
+                  <small>把握 {c.confidence}% ›</small>
                 </a>
               </li>
             ))}
-          </ul>
+          </ol>
         </section>
       )}
 
+      {report.off_limits && <p className="note box">这类内容不在查证范围内：{report.off_limits_reason}</p>}
+
       {report.family_message && (
         <div className="family">
-          <small>可以直接发到家族群</small>
+          <small>一句话结论，可以直接转发</small>
           <p>{report.family_message}</p>
         </div>
       )}
 
-      <div className="stats">
-        <div><b>{report.claims.length}</b><small>条说法</small></div>
-        <div><b>{searches}</b><small>次搜索</small></div>
-        <div><b>{rounds}</b><small>轮比对</small></div>
-        <div><b>{cited.length}<em>/{report.sources.length}</em></b><small>引用来源</small></div>
-      </div>
-
-      <details className="readable" open={report.readable_text.length < 120}>
-        <summary>{report.had_image ? '从截图里识别到的内容' : '要查的内容'}<span className="more">（点开看全文）</span></summary>
-        {report.readable_text}
-      </details>
-
-      {report.off_limits && <p className="note box">这类内容不在查证范围内：{report.off_limits_reason}</p>}
+      <Readable text={report.readable_text} fromImage={report.had_image} />
 
       {report.claims.map((c, i) => (
-        <div key={c.index} className="rise" style={{ animationDelay: `${0.15 + i * 0.12}s` }}>
+        <div key={c.index} id={`claim-${c.index}`} className="rise" style={{ animationDelay: `${0.15 + i * 0.12}s` }}>
           <ClaimCard c={c} byId={byId} reportId={report.id} />
         </div>
       ))}
@@ -141,17 +137,44 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
           <button
             className="primary"
             onClick={async () => {
-              if (await copy(`${report.family_message}\n查证报告：${link}`)) {
+              const text = `${report.family_message}\n查证报告：${link}`
+              // The system share sheet only exists on HTTPS; otherwise copy the text for pasting.
+              if (navigator.share) {
+                try {
+                  await navigator.share({ title: '查得到，信得过', text })
+                  return
+                } catch (e) {
+                  if (e instanceof DOMException && e.name === 'AbortError') return
+                }
+              }
+              if (await copy(text)) {
                 setCopied(true)
                 setTimeout(() => setCopied(false), 2000)
               }
             }}
           >
-            {copied ? '已复制 ✓' : '📋 复制给家人'}
+            {copied ? '已复制，去粘贴吧 ✓' : '📤 分享'}
           </button>
         )}
       </div>
     </article>
+  )
+}
+
+/** The checked text; long screenshot transcripts start folded so the verdicts stay on the first screen. */
+function Readable({ text, fromImage }: { text: string; fromImage: boolean }) {
+  const long = text.length > 120 || text.split('\n').length > 4
+  const [open, setOpen] = useState(!long)
+  return (
+    <blockquote className={`readable ${open ? '' : 'folded'}`}>
+      <small>{fromImage ? '从截图里识别到的内容' : '要查的内容'}</small>
+      <span className="readable-text">{text}</span>
+      {long && (
+        <button className="link" onClick={() => setOpen(!open)}>
+          {open ? '收起' : '展开全文'}
+        </button>
+      )}
+    </blockquote>
   )
 }
 
@@ -189,7 +212,7 @@ function ClaimCard({ c, byId, reportId }: { c: ClaimResult; byId: Map<string, So
   }
 
   return (
-    <section id={`claim-${c.index}`} className={`claim v-${c.verdict}-edge`}>
+    <section className={`claim v-${c.verdict}-edge`}>
       <div className="claim-head">
         <span className="num">{c.index + 1}</span>
         <h3>{c.claim}</h3>

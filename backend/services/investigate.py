@@ -288,7 +288,7 @@ async def run(text: str, image_b64: str | None, mime: str, emit: Emit) -> dict[s
     report["verdict"] = overall(report["claims"])
     report["verdict_label"] = VERDICTS[report["verdict"]]
 
-    await emit({"type": "step", "stage": "summary", "text": "所有说法查完了，正在整理证据链、写给家人的话…"})
+    await emit({"type": "step", "stage": "summary", "text": "所有说法查完了，正在整理证据链、写一句话结论…"})
     lines = "\n".join(f"{i + 1}. {r['claim']} → {r['verdict_label']}：{r['explanation']}" for i, r in enumerate(results))
     try:
         s = await llm.generate_json(SUMMARY.format(today=_today(), text=p["readable_text"], results=lines),
