@@ -33,7 +33,7 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
   const [err, setErr] = useState('')
   const [copied, setCopied] = useState(false)
   const [sheet, setSheet] = useState(false)
-  const [focus, setFocus] = useState('')
+  const [peek, setPeek] = useState<Source | null>(null)
 
   useEffect(() => {
     if (initial) return
@@ -41,13 +41,6 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
   }, [id, initial])
 
   const byId = useMemo(() => new Map((report?.sources ?? []).map((s) => [s.id, s])), [report])
-
-  function showSource(id: string) {
-    if (window.matchMedia('(max-width: 1099px)').matches) setSheet(true)
-    setFocus(id)
-    setTimeout(() => document.getElementById(`src-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60)
-    setTimeout(() => setFocus(''), 2200)
-  }
 
   if (err) return <p className="error">{err}</p>
   if (!report) return <p className="loading">正在打开报告…</p>
@@ -114,7 +107,7 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
 
       {report.claims.map((c, i) => (
         <div key={c.index} id={`claim-${c.index}`} className="rise" style={{ animationDelay: `${0.15 + i * 0.12}s` }}>
-          <ClaimCard c={c} byId={byId} reportId={report.id} onSource={showSource} />
+          <ClaimCard c={c} byId={byId} reportId={report.id} onPeek={setPeek} />
         </div>
       ))}
 
@@ -162,21 +155,18 @@ export default function ReportView({ id, initial }: { id: string; initial: Repor
       <>
         <div className={`sheet-mask ${sheet ? 'on' : ''}`} onClick={() => setSheet(false)} />
         <aside className={`side-sources ${sheet ? 'on' : ''}`} aria-label="全部来源">
-          <SourceList sources={report.sources} focus={focus} onClose={() => setSheet(false)} />
+          <SourceList sources={report.sources} onPeek={setPeek} onClose={() => setSheet(false)} />
         </aside>
       </>
     )}
+    {peek && <SourcePeek s={peek} onClose={() => setPeek(null)} />}
     </div>
   )
 }
 
-function SourceList({ sources, focus, onClose }: { sources: Source[]; focus: string; onClose: () => void }) {
+function SourceList({ sources, onPeek, onClose }: { sources: Source[]; onPeek: (s: Source) => void; onClose: () => void }) {
   const cited = sources.filter((s) => s.cited)
   const [all, setAll] = useState(cited.length === 0)
-  // A source clicked in the chain may not be cited: switch to the full list so it can be shown.
-  useEffect(() => {
-    if (focus && !cited.some((s) => s.id === focus)) setAll(true)
-  }, [focus]) // eslint-disable-line react-hooks/exhaustive-deps
   const shown = all ? [...cited, ...sources.filter((s) => !s.cited)] : cited
   return (
     <>
@@ -184,14 +174,14 @@ function SourceList({ sources, focus, onClose }: { sources: Source[]; focus: str
         <h2>🔗 查证来源</h2>
         <button className="sheet-close" onClick={onClose} aria-label="关闭">✕</button>
       </div>
-      <p className="hint">全部来自元宝搜索，点标题打开原网页。</p>
+      <p className="hint">全部来自元宝搜索，点一条先看摘要。</p>
       <div className="chips">
         <button className={all ? '' : 'on'} onClick={() => setAll(false)}>结论依据 {cited.length}</button>
         <button className={all ? 'on' : ''} onClick={() => setAll(true)}>全部 {sources.length}</button>
       </div>
       <ol className="src-list">
         {shown.map((s) => (
-          <SourceRow key={s.id} s={s} focus={focus === s.id} />
+          <SourceRow key={s.id} s={s} onPeek={onPeek} />
         ))}
       </ol>
     </>
@@ -215,15 +205,51 @@ function Readable({ text, fromImage }: { text: string; fromImage: boolean }) {
   )
 }
 
-function SourceRow({ s, focus }: { s: Source; focus: boolean }) {
+/** A source card that slides in (bottom sheet on phones, from the right on wide screens) with the passage and a link out. */
+function SourcePeek({ s, onClose }: { s: Source; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
   return (
-    <li id={`src-${s.id}`} className={`src-card ${s.cited ? 'cited' : ''} ${focus ? 'flash' : ''}`}>
+    <div className="peek-backdrop" onClick={onClose}>
+      <aside className="peek" role="dialog" aria-label={s.title} onClick={(e) => e.stopPropagation()}>
+        <div className="peek-top">
+          <span className="sid">{s.id}</span>
+          {s.tier && <span className={`tier tier-${s.tier}`}>{s.tier_label}</span>}
+          {s.cited && <b className="peek-cited">已引用</b>}
+          <button className="peek-close" onClick={onClose} aria-label="关闭">×</button>
+        </div>
+        <h3>{s.title}</h3>
+        <p className="src-meta">{s.site || host(s.url)}{s.date && ` · ${s.date.slice(0, 10)}`}</p>
+        {s.passage && <p className="peek-passage">{s.passage.length > 320 ? s.passage.slice(0, 320) + '…' : s.passage}</p>}
+        {s.queries?.length > 0 && <p className="peek-q">由元宝搜索「{s.queries.join('」「')}」找到</p>}
+        <a className="peek-open" href={s.url} target="_blank" rel="noreferrer">打开原网页 ↗</a>
+      </aside>
+    </div>
+  )
+}
+
+function SourceRow({ s, onPeek }: { s: Source; onPeek: (s: Source) => void }) {
+  return (
+    <li id={`src-${s.id}`} className={`src-card ${s.cited ? 'cited' : ''}`}>
       <div className="src-top">
         <span className="sid">{s.id}</span>
         {s.tier && <span className={`tier tier-${s.tier}`}>{s.tier_label}</span>}
         {s.cited && <b className="cited-tag">已引用</b>}
       </div>
-      <a href={s.url} target="_blank" rel="noreferrer">{s.title} ↗</a>
+      <a
+        href={s.url}
+        target="_blank"
+        rel="noreferrer"
+        onClick={(e) => {
+          e.preventDefault()
+          onPeek(s)
+        }}
+      >
+        {s.title}
+      </a>
       <span className="src-meta">
         {s.site || host(s.url)}
         {s.date && ` · ${s.date.slice(0, 10)}`}
@@ -232,7 +258,9 @@ function SourceRow({ s, focus }: { s: Source; focus: boolean }) {
   )
 }
 
-function ClaimCard({ c, byId, reportId, onSource }: { c: ClaimResult; byId: Map<string, Source>; reportId: string; onSource: (id: string) => void }) {
+function ClaimCard({ c, byId, reportId, onPeek }: {
+  c: ClaimResult; byId: Map<string, Source>; reportId: string; onPeek: (s: Source) => void
+}) {
   const [chainOpen, setChainOpen] = useState(true)
   const [watchOpen, setWatchOpen] = useState(false)
   const [token, setToken] = useState('')
@@ -273,7 +301,16 @@ function ClaimCard({ c, byId, reportId, onSource }: { c: ClaimResult; byId: Map<
                 <q>{e.quote}</q>
                 {!e.quote_found && <span className="unverified">原文未逐字核对上</span>}
                 {s && (
-                  <a href={s.url} target="_blank" rel="noreferrer" className="ev-src">
+                  <a
+                    href={s.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="ev-src"
+                    onClick={(ev) => {
+                      ev.preventDefault()
+                      onPeek(s)
+                    }}
+                  >
                     {s.tier && <span className={`tier tier-${s.tier}`}>{s.tier_label}</span>}
                     [{s.id}] {s.site || host(s.url)}
                     {s.date && ` · ${s.date.slice(0, 10)}`} ↗
@@ -327,9 +364,11 @@ function ClaimCard({ c, byId, reportId, onSource }: { c: ClaimResult; byId: Map<
                           <a
                             key={sid}
                             href={`#src-${sid}`}
+                            title={byId.get(sid)?.title}
                             onClick={(e) => {
                               e.preventDefault()
-                              onSource(sid)
+                              const src = byId.get(sid)
+                              if (src) onPeek(src)
                             }}
                           >
                             {sid}

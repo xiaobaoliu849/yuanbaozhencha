@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 BASE_URL = os.getenv("LLM_BASE_URL", "https://hkg.toklens.ai/v1").rstrip("/")
 # v4-flash answers in ~1s; v4.1-flash thinks first and can take over a minute per call.
 PREFER = ("deepseek-v4-flash", "deepseek-v4.1-flash", "deepseek", "glm")
-CALL_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "20"))
+CALL_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "35"))
 
 _client: httpx.AsyncClient | None = None
 _model: str | None = os.getenv("LLM_MODEL") or None
