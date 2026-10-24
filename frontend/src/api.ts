@@ -2,6 +2,28 @@ export type Verdict = 'true' | 'false' | 'mixed' | 'unknown'
 
 export const LABEL: Record<Verdict, string> = { true: '属实', false: '不实', mixed: '部分属实', unknown: '查不到' }
 
+export type Tier = 'official' | 'debunk' | 'expert' | 'media' | 'self' | 'other'
+
+export interface SourceCard {
+  id: string
+  title: string
+  url: string
+  site: string
+  date: string
+  tier: Tier
+  tier_label: string
+}
+
+export interface RecentReport {
+  id: string
+  headline: string
+  verdict: Verdict
+  verdict_label: string
+  created_at: string
+  claims: number
+  sources: number
+}
+
 export interface Source {
   id: string
   title: string
@@ -12,6 +34,8 @@ export interface Source {
   favicon: string
   queries: string[]
   cited: boolean
+  tier: Tier
+  tier_label: string
 }
 
 export interface Evidence {
@@ -64,7 +88,7 @@ export interface Report {
 export type LiveEvent =
   | { type: 'step'; text: string }
   | { type: 'plan'; title: string; readable_text: string; off_limits: boolean; claims: { claim: string; queries: string[] }[] }
-  | { type: 'search'; claim: number; round: number; query: string; found: number; new: number; error: string | null }
+  | { type: 'search'; claim: number; round: number; query: string; found: number; new: number; error: string | null; sources?: SourceCard[] }
   | { type: 'judging'; claim: number; round: number; sources: number }
   | { type: 'round'; claim: number; round: number; verdict: Verdict; confidence: number }
   | { type: 'claim'; claim: number; result: ClaimResult }
@@ -141,6 +165,7 @@ const post = (body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 })
 
+export const getRecent = () => json<RecentReport[]>('/api/reports/recent')
 export const getReport = (id: string) => json<Report>(`/api/reports/${encodeURIComponent(id)}`)
 export const listWatches = (owner: string) => json<Watch[]>(`/api/watches?owner=${encodeURIComponent(owner)}`)
 export const addWatch = (owner: string, report_id: string, claim_index: number, push_token: string) =>

@@ -110,7 +110,10 @@ function SourceRow({ s }: { s: Source }) {
   return (
     <li id={`src-${s.id}`} className={s.cited ? 'cited' : ''}>
       <span className="sid">{s.id}</span>
-      <a href={s.url} target="_blank" rel="noreferrer">{s.title}</a>
+      <span>
+        {s.tier && <span className={`tier tier-${s.tier}`}>{s.tier_label}</span>}
+        <a href={s.url} target="_blank" rel="noreferrer">{s.title}</a>
+      </span>
       <span className="src-meta">
         {s.site || host(s.url)}
         {s.date && ` · ${s.date.slice(0, 10)}`}
@@ -162,6 +165,7 @@ function ClaimCard({ c, byId, reportId }: { c: ClaimResult; byId: Map<string, So
                 {!e.quote_found && <span className="unverified">原文未逐字核对上</span>}
                 {s && (
                   <a href={s.url} target="_blank" rel="noreferrer" className="ev-src">
+                    {s.tier && <span className={`tier tier-${s.tier}`}>{s.tier_label}</span>}
                     [{s.id}] {s.site || host(s.url)}
                     {s.date && ` · ${s.date.slice(0, 10)}`} ↗
                   </a>

@@ -44,6 +44,21 @@ def get_report(rid: str) -> dict[str, Any] | None:
     return json.loads(row["body"]) if row else None
 
 
+def recent_reports(limit: int = 8) -> list[dict[str, Any]]:
+    """Latest reports that actually checked something, trimmed to what a list card shows."""
+    out = []
+    for row in _db.execute("SELECT body FROM reports ORDER BY created_at DESC LIMIT ?", (limit * 4,)):
+        r = json.loads(row["body"])
+        if r.get("off_limits") or not r.get("claims"):
+            continue
+        out.append({"id": r["id"], "headline": r.get("headline") or r.get("title", ""), "verdict": r["verdict"],
+                    "verdict_label": r.get("verdict_label", ""), "created_at": r["created_at"],
+                    "claims": len(r["claims"]), "sources": len(r.get("sources", []))})
+        if len(out) >= limit:
+            break
+    return out
+
+
 def _watch(row: sqlite3.Row) -> dict[str, Any]:
     w = dict(row)
     w["queries"] = json.loads(w["queries"] or "[]")

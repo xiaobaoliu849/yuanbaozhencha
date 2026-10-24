@@ -145,6 +145,11 @@ async def investigate_ep(body: InvestigateIn, request: Request) -> StreamingResp
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+@app.get("/api/reports/recent")
+async def recent_reports() -> list[dict[str, Any]]:
+    return store.recent_reports()
+
+
 @app.get("/api/reports/{rid}")
 async def get_report(rid: str) -> dict[str, Any]:
     report = store.get_report(rid)

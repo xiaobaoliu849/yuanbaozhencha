@@ -1,9 +1,10 @@
-import type { LiveEvent, Verdict } from '../api'
+import type { LiveEvent, SourceCard, Verdict } from '../api'
 import { LABEL } from '../api'
 
 interface ClaimLive {
   claim: string
   log: { round: number; text: string; kind: 'search' | 'judge' | 'round' | 'error' }[]
+  cards: SourceCard[]
   verdict?: Verdict
   confidence?: number
   done: boolean
@@ -19,14 +20,15 @@ export interface LiveState {
 export const emptyLive = (): LiveState => ({ step: '准备开始…', readable: '', claims: [], searches: 0 })
 
 export function reduceLive(s: LiveState, e: LiveEvent): LiveState {
-  const claims = s.claims.map((c) => ({ ...c, log: [...c.log] }))
-  const at = (i: number) => claims[i] ?? (claims[i] = { claim: '', log: [], done: false })
+  const claims = s.claims.map((c) => ({ ...c, log: [...c.log], cards: [...c.cards] }))
+  const at = (i: number) => claims[i] ?? (claims[i] = { claim: '', log: [], cards: [], done: false })
   switch (e.type) {
     case 'step':
       return { ...s, step: e.text }
     case 'plan':
-      return { ...s, readable: e.readable_text, claims: e.claims.map((c) => ({ claim: c.claim, log: [], done: false })) }
+      return { ...s, readable: e.readable_text, claims: e.claims.map((c) => ({ claim: c.claim, log: [], cards: [], done: false })) }
     case 'search':
+      at(e.claim).cards.unshift(...(e.sources ?? []))
       at(e.claim).log.push({
         round: e.round,
         kind: e.error ? 'error' : 'search',
@@ -84,6 +86,17 @@ export default function Live({ state }: { state: LiveState }) {
             ))}
             {!c.done && <li className="log-wait">…</li>}
           </ul>
+          {c.cards.length > 0 && (
+            <div className="cards">
+              {c.cards.map((s) => (
+                <a key={s.id} className={`card tier-${s.tier}`} href={s.url} target="_blank" rel="noreferrer">
+                  <span className="tier">{s.tier_label}</span>
+                  <span className="card-title">{s.title}</span>
+                  <small>{s.site}{s.date && ` · ${s.date.slice(0, 10)}`}</small>
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       ))}
     </section>

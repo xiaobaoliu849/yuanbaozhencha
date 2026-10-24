@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { compressImage } from '../api'
+import { LABEL, compressImage, getRecent, type RecentReport } from '../api'
+import { go } from '../App'
 
 const EXAMPLES = [
   '隔夜茶会致癌，泡过的茶放一晚上千万别喝！',
@@ -19,12 +20,14 @@ export default function Home({ onStart, error }: Props) {
   const [imgErr, setImgErr] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
   const [canSee, setCanSee] = useState(true)
+  const [recent, setRecent] = useState<RecentReport[]>([])
 
   useEffect(() => {
     fetch('/api/health')
       .then((r) => r.json())
       .then((h) => setCanSee(h.images !== false))
       .catch(() => {})
+    getRecent().then(setRecent).catch(() => {})
   }, [])
 
   async function pick(file?: File | null) {
@@ -99,13 +102,30 @@ export default function Home({ onStart, error }: Props) {
         ))}
       </div>
 
+      {recent.length > 0 && (
+        <section className="recent">
+          <h2>最近查过</h2>
+          <ul>
+            {recent.map((r) => (
+              <li key={r.id}>
+                <a href={`/r/${r.id}`} onClick={(e) => { e.preventDefault(); go(`/r/${r.id}`) }}>
+                  <span className={`mini-stamp v-${r.verdict}`}>{LABEL[r.verdict]}</span>
+                  <span className="recent-title">{r.headline}</span>
+                  <small>{r.sources} 个来源</small>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <ol className="how">
         <li><b>拆</b>一段话里往往藏着好几个说法，逐条拆开来查。</li>
         <li><b>搜</b>每条说法用元宝搜索查好几轮，换着关键词找权威来源。</li>
         <li><b>比</b>来源之间交叉比对，原文逐句核对，核对不上就不下结论。</li>
         <li><b>盯</b>还没定论的事，可以设成每天自动复查，结论变了提醒你。</li>
       </ol>
-      <p className="note">不查时政和涉及个人隐私的消息。</p>
+      <p className="note">不查时政和涉及个人隐私的消息。查证报告会公开展示在「最近查过」里，请不要输入个人信息。</p>
     </section>
   )
 }

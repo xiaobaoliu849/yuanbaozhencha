@@ -13,7 +13,7 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from typing import Any
 
-from . import llm, yuanbao
+from . import credibility, llm, yuanbao
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ JUDGE = """你是严谨的事实核查员。今天是 {today}。只能依据下�
 
 已经搜索过的词：{queries}
 
-来源（编号 / 网站 / 日期 / 标题 / 摘录）：
+来源（编号 / 网站（类型）/ 日期 / 标题 / 摘录）：
 {sources}
 
 判断规则：
@@ -104,7 +104,9 @@ class SourcePool:
             return sid
         sid = f"S{len(self.by_id) + 1}"
         self._by_url[page.url] = sid
-        self.by_id[sid] = {"id": sid, **page.to_dict(), "queries": [query]}
+        t = credibility.tier(page.url, page.site)
+        self.by_id[sid] = {"id": sid, **page.to_dict(), "queries": [query],
+                           "tier": t, "tier_label": credibility.TIERS[t]}
         return sid
 
 
@@ -117,12 +119,16 @@ async def _search(query: str, pool: SourcePool) -> tuple[list[str], str | None]:
     return [pool.add(p, query) for p in pages[:PAGES_PER_QUERY]], None
 
 
+def _card(s: dict[str, Any]) -> dict[str, Any]:
+    return {k: s[k] for k in ("id", "title", "url", "site", "date", "tier", "tier_label")}
+
+
 def _format_sources(ids: list[str], pool: SourcePool) -> str:
     lines = []
     for sid in ids:
         s = pool.by_id[sid]
         passage = re.sub(r"\s+", " ", s["passage"])[:PASSAGE_CHARS]
-        lines.append(f"[{sid}] {s['site'] or '-'} / {s['date'] or '日期不详'} / {s['title']}\n    {passage}")
+        lines.append(f"[{sid}] {s['site'] or '-'}（{s['tier_label']}）/ {s['date'] or '日期不详'} / {s['title']}\n    {passage}")
     return "\n".join(lines) or "（没有搜到任何来源）"
 
 
@@ -183,7 +189,8 @@ async def check_claim(index: int, claim: str, queries: list[str], pool: SourcePo
             seen += new
             searches.append({"query": q, "found": len(ids), "new": len(new), "sources": ids, "error": err})
             await emit({"type": "search", "claim": index, "round": rnd, "query": q,
-                        "found": len(ids), "new": len(new), "error": err})
+                        "found": len(ids), "new": len(new), "error": err,
+                        "sources": [_card(pool.by_id[i]) for i in new]})
         await emit({"type": "judging", "claim": index, "round": rnd, "sources": len(seen)})
         try:
             judged = await llm.generate_json(JUDGE.format(
