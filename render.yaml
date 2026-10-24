@@ -8,6 +8,10 @@ services:
     envVars:
       - key: YUANBAO_API_KEY
         sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_BASE_URL
+        value: https://hkg.toklens.ai/v1
       - key: GEMINI_API_KEY
         sync: false
       - key: CRON_TOKEN

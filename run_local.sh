@@ -3,7 +3,7 @@ set -e
 cd "$(dirname "$0")"
 if [ ! -f .env ]; then
   cp .env.example .env
-  echo "已创建 .env，请填入 YUANBAO_API_KEY 和 GEMINI_API_KEY 后再运行本脚本。"
+  echo "已创建 .env，请填入 YUANBAO_API_KEY 和 LLM_API_KEY 后再运行本脚本。"
   exit 1
 fi
 python3 -m pip install -q -r requirements.txt

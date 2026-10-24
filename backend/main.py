@@ -35,7 +35,7 @@ def _load_dotenv() -> None:
 
 _load_dotenv()
 
-from .services import investigate, notify, store, yuanbao  # noqa: E402 — keys must be loaded first
+from .services import investigate, llm, notify, store, yuanbao  # noqa: E402 — keys must be loaded first
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("chade")
@@ -90,7 +90,16 @@ class InvestigateIn(BaseModel):
 
 @app.get("/api/health")
 async def health() -> dict[str, Any]:
-    return {"ok": True, "yuanbao": yuanbao.configured(), "gemini": bool(os.getenv("GEMINI_API_KEY"))}
+    return {"ok": True, "yuanbao": yuanbao.configured(), "llm": llm.provider(), "images": llm.can_read_images()}
+
+
+@app.get("/api/models")
+async def models() -> dict[str, Any]:
+    """Which models the OpenAI-compatible endpoint offers, to pick LLM_MODEL / LLM_VISION_MODEL."""
+    try:
+        return {"models": await llm.list_models()}
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(502, str(exc)) from exc
 
 
 @app.post("/api/investigate")
@@ -98,6 +107,8 @@ async def investigate_ep(body: InvestigateIn, request: Request) -> StreamingResp
     text = body.text.strip()[:2000]
     if not text and not body.image_b64:
         raise HTTPException(400, "请输入要查的内容，或上传一张截图")
+    if body.image_b64 and not llm.can_read_images():
+        raise HTTPException(400, "当前没有配置能看图的模型，请把截图里的文字粘贴进来")
     if body.image_b64 and len(body.image_b64) > MAX_IMAGE_B64:
         raise HTTPException(413, "截图太大了，请压缩到 6MB 以内")
     key = (_client_ip(request), date.today())

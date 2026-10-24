@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { compressImage } from '../api'
 
 const EXAMPLES = [
@@ -18,6 +18,14 @@ export default function Home({ onStart, error }: Props) {
   const [image, setImage] = useState<{ b64: string; mime: string; preview: string } | null>(null)
   const [imgErr, setImgErr] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+  const [canSee, setCanSee] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/health')
+      .then((r) => r.json())
+      .then((h) => setCanSee(h.images !== false))
+      .catch(() => {})
+  }, [])
 
   async function pick(file?: File | null) {
     if (!file) return
@@ -69,7 +77,7 @@ export default function Home({ onStart, error }: Props) {
           </div>
         )}
         <div className="input-actions">
-          <button className="ghost" onClick={() => fileRef.current?.click()}>
+          <button className="ghost" disabled={!canSee} title={canSee ? '' : '暂未开启截图识别'} onClick={() => fileRef.current?.click()}>
             📷 {image ? '换一张截图' : '上传截图'}
           </button>
           <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => pick(e.target.files?.[0])} />

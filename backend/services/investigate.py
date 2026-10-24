@@ -13,7 +13,7 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from typing import Any
 
-from . import gemini, yuanbao
+from . import llm, yuanbao
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +186,7 @@ async def check_claim(index: int, claim: str, queries: list[str], pool: SourcePo
                         "found": len(ids), "new": len(new), "error": err})
         await emit({"type": "judging", "claim": index, "round": rnd, "sources": len(seen)})
         try:
-            judged = await gemini.generate_json(JUDGE.format(
+            judged = await llm.generate_json(JUDGE.format(
                 today=_today(), claim=claim, queries="、".join(asked), sources=_format_sources(seen, pool),
                 round=rnd, max_rounds=MAX_ROUNDS,
             ))
@@ -216,7 +216,7 @@ async def check_claim(index: int, claim: str, queries: list[str], pool: SourcePo
 
 async def plan(text: str, image_b64: str | None, mime: str) -> dict[str, Any]:
     note = "用户还附了一张截图（见图片），里面的说法也要查。" if image_b64 else ""
-    data = await gemini.generate_json(
+    data = await llm.generate_json(
         PLAN.format(today=_today(), text=text.strip() or "（只有截图）", image_note=note, max_claims=MAX_CLAIMS),
         image_b64=image_b64, mime=mime,
     )
@@ -276,7 +276,7 @@ async def run(text: str, image_b64: str | None, mime: str, emit: Emit) -> dict[s
     await emit({"type": "step", "text": "整理证据链，写给家人的话…"})
     lines = "\n".join(f"{i + 1}. {r['claim']} → {r['verdict_label']}：{r['explanation']}" for i, r in enumerate(results))
     try:
-        s = await gemini.generate_json(SUMMARY.format(today=_today(), text=p["readable_text"], results=lines),
+        s = await llm.generate_json(SUMMARY.format(today=_today(), text=p["readable_text"], results=lines),
                                        thinking="minimal")
         report["headline"] = str(s.get("headline", ""))
         report["family_message"] = str(s.get("family_message", ""))

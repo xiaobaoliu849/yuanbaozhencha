@@ -22,7 +22,8 @@ backend/
   services/investigate.py 拆解 → 多轮搜索 → 判断 → 引用核对 → 汇总
   services/store.py       SQLite（报告、盯梢）
   services/notify.py      结论变化提醒（PushPlus / Webhook）
-  services/gemini.py      Gemini（读截图、拆解、判断）
+  services/llm.py         大模型：OpenAI 兼容接口（Toklens 的 DeepSeek / GLM）或 Gemini
+  services/gemini.py      Gemini（可选，用来看截图）
 frontend/                 React + Vite，手机优先
 .github/workflows/watch.yml  每天叫醒服务复查盯梢
 ```
@@ -32,15 +33,16 @@ frontend/                 React + Vite，手机优先
 Windows 双击 `run_local.bat`，macOS / Linux 运行 `./run_local.sh`。第一次会生成 `.env`，填入：
 
 - `YUANBAO_API_KEY`：腾讯云控制台 → 元宝搜索 → API KEY（先用邀请码核销领额度）
-- `GEMINI_API_KEY`
+- `LLM_API_KEY`：Toklens（或任何 OpenAI 兼容接口）的 Key，接口地址填 `LLM_BASE_URL`
+- `GEMINI_API_KEY`（可选）：填了才能识别截图，也可以改填能看图的 `LLM_VISION_MODEL`
 
 然后打开 http://localhost:8000 。
 
 ## 部署
 
-需要境外服务器（Gemini 在国内不可用）。数据存在 SQLite，路径由 `DATA_DIR` 决定（Docker 里默认 `/data`）。
+用 Toklens 香港节点时国内外服务器都行；用 Gemini 看截图则需要境外服务器。数据存在 SQLite，路径由 `DATA_DIR` 决定（Docker 里默认 `/data`）。
 
-- **Railway（推荐）**：New Project → Deploy from GitHub repo，自动识别 Dockerfile；加一个 Volume 挂到 `/data`，填环境变量 `YUANBAO_API_KEY`、`GEMINI_API_KEY`、`CRON_TOKEN`、`PUBLIC_URL`。报告链接和盯梢在重启后都还在。
+- **Railway（推荐）**：New Project → Deploy from GitHub repo，自动识别 Dockerfile；加一个 Volume 挂到 `/data`，填环境变量 `YUANBAO_API_KEY`、`LLM_API_KEY`、`LLM_BASE_URL`、`GEMINI_API_KEY`（可选）、`CRON_TOKEN`、`PUBLIC_URL`。报告链接和盯梢在重启后都还在。
 - **Render**：用 `render.yaml` 一键部署。免费实例休眠重启后本地文件会清空，分享出去的报告链接会失效，适合演示。
 
 持续盯梢：服务在运行时每小时检查一次到期的盯梢；免费主机会休眠，所以再在 GitHub 仓库 Secrets 里加 `APP_URL` 和 `CRON_TOKEN`，`daily-watch` 工作流每天北京时间 8 点叫醒服务并复查。
@@ -50,7 +52,11 @@ Windows 双击 `run_local.bat`，macOS / Linux 运行 `./run_local.sh`。第一�
 | 变量 | 说明 |
 | --- | --- |
 | `YUANBAO_API_KEY` | 元宝搜索 API Key（也认 `TENCENTCLOUD_WSA_APIKEY`） |
-| `GEMINI_API_KEY` | Gemini API Key |
+| `LLM_API_KEY` | OpenAI 兼容接口的 Key（不填则全用 Gemini） |
+| `LLM_BASE_URL` | 接口地址，默认 `https://hkg.toklens.ai/v1` |
+| `LLM_MODEL` | 模型名；不填自动选第一个 DeepSeek 模型，可用模型见 `/api/models` |
+| `LLM_VISION_MODEL` | 能看图的模型名，用于截图识别（没有 Gemini 时） |
+| `GEMINI_API_KEY` | 可选，用来识别截图 |
 | `PUBLIC_URL` | 对外地址，用于提醒里的报告链接 |
 | `CRON_TOKEN` | `/api/cron` 的口令 |
 | `WATCH_INTERVAL_HOURS` | 盯梢复查间隔，默认 24 |
