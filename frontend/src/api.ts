@@ -51,6 +51,11 @@ export interface Round {
   verdict: Verdict
   confidence: number
   note: string
+  sources?: number
+  evidence?: number
+  verified?: number
+  guard?: boolean
+  next_reason?: string
 }
 
 export interface ClaimResult {
@@ -86,11 +91,15 @@ export interface Report {
 }
 
 export type LiveEvent =
-  | { type: 'step'; text: string }
+  | { type: 'step'; text: string; stage?: 'plan' | 'search' | 'summary' }
+  | { type: 'searching'; claim: number; round: number; queries: string[]; why: string }
   | { type: 'plan'; title: string; readable_text: string; off_limits: boolean; claims: { claim: string; queries: string[] }[] }
   | { type: 'search'; claim: number; round: number; query: string; found: number; new: number; error: string | null; sources?: SourceCard[] }
   | { type: 'judging'; claim: number; round: number; sources: number }
-  | { type: 'round'; claim: number; round: number; verdict: Verdict; confidence: number }
+  | {
+      type: 'round'; claim: number; round: number; verdict: Verdict; confidence: number; note: string
+      sources: number; evidence: number; verified: number; guard: boolean; next_reason: string; next_queries: string[]
+    }
   | { type: 'claim'; claim: number; result: ClaimResult }
   | { type: 'done'; report: Report }
   | { type: 'error'; message: string }

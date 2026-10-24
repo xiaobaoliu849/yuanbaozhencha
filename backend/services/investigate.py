@@ -183,6 +183,8 @@ async def check_claim(index: int, claim: str, queries: list[str], pool: SourcePo
         if not todo:
             break
         asked += todo
+        await emit({"type": "searching", "claim": index, "round": rnd, "queries": todo,
+                    "why": "" if rnd == 1 else chain[-1]["next_reason"]})
         searches = []
         for q, (ids, err) in zip(todo, await asyncio.gather(*(_search(q, pool) for q in todo))):
             new = [i for i in ids if i not in seen]
@@ -201,12 +203,18 @@ async def check_claim(index: int, claim: str, queries: list[str], pool: SourcePo
             logger.warning("judge failed for %r: %s", claim, exc)
             judged = {"verdict": "unknown", "explanation": "这一条在分析证据时出错了，暂时给不出结论。"}
         result = _check(judged, seen, pool)
-        chain.append({"round": rnd, "searches": searches, "verdict": result["verdict"],
-                      "confidence": result["confidence"], "note": result["explanation"]})
-        await emit({"type": "round", "claim": index, "round": rnd,
-                    "verdict": result["verdict"], "confidence": result["confidence"]})
         settled = result["verdict"] != "unknown" and result["confidence"] >= 75
-        if settled or not result["need_more"]:
+        more = not settled and result["need_more"] and rnd < MAX_ROUNDS and bool(result["next_queries"])
+        step = {"round": rnd, "searches": searches, "sources": len(seen), "verdict": result["verdict"],
+                "confidence": result["confidence"], "note": result["explanation"],
+                "evidence": len(result["evidence"]),
+                "verified": sum(1 for e in result["evidence"] if e["quote_found"]),
+                "guard": bool(result["guard"]),
+                "next_reason": "证据还不够，换个角度再搜一轮" if more else ""}
+        chain.append(step)
+        await emit({"type": "round", "claim": index, **{k: v for k, v in step.items() if k != "searches"},
+                    "next_queries": result["next_queries"] if more else []})
+        if not more:
             break
         todo = result["next_queries"]
     out = {
@@ -255,7 +263,7 @@ def overall(results: list[dict[str, Any]]) -> str:
 
 
 async def run(text: str, image_b64: str | None, mime: str, emit: Emit) -> dict[str, Any]:
-    await emit({"type": "step", "text": "读取内容，拆解成可以查证的说法…"})
+    await emit({"type": "step", "stage": "plan", "text": "AI 正在阅读内容，拆解成可以查证的说法…"})
     p = await plan(text, image_b64, mime)
     await emit({"type": "plan", **p})
     report: dict[str, Any] = {
@@ -270,7 +278,7 @@ async def run(text: str, image_b64: str | None, mime: str, emit: Emit) -> dict[s
         return report
 
     pool = SourcePool()
-    await emit({"type": "step", "text": f"拆出 {len(p['claims'])} 条说法，开始用元宝搜索多轮查证…"})
+    await emit({"type": "step", "stage": "search", "text": f"拆出 {len(p['claims'])} 条说法，开始用元宝搜索多轮查证…"})
     results = await asyncio.gather(*(
         check_claim(i, c["claim"], c["queries"], pool, emit) for i, c in enumerate(p["claims"])
     ))
@@ -280,7 +288,7 @@ async def run(text: str, image_b64: str | None, mime: str, emit: Emit) -> dict[s
     report["verdict"] = overall(report["claims"])
     report["verdict_label"] = VERDICTS[report["verdict"]]
 
-    await emit({"type": "step", "text": "整理证据链，写给家人的话…"})
+    await emit({"type": "step", "stage": "summary", "text": "所有说法查完了，正在整理证据链、写给家人的话…"})
     lines = "\n".join(f"{i + 1}. {r['claim']} → {r['verdict_label']}：{r['explanation']}" for i, r in enumerate(results))
     try:
         s = await llm.generate_json(SUMMARY.format(today=_today(), text=p["readable_text"], results=lines),

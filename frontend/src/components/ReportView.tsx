@@ -149,7 +149,7 @@ function SourceRow({ s }: { s: Source }) {
 }
 
 function ClaimCard({ c, byId, reportId }: { c: ClaimResult; byId: Map<string, Source>; reportId: string }) {
-  const [chainOpen, setChainOpen] = useState(false)
+  const [chainOpen, setChainOpen] = useState(true)
   const [watchOpen, setWatchOpen] = useState(false)
   const [token, setToken] = useState('')
   const [watchState, setWatchState] = useState<'idle' | 'saving' | 'done' | string>('idle')
@@ -203,7 +203,7 @@ function ClaimCard({ c, byId, reportId }: { c: ClaimResult; byId: Map<string, So
 
       <div className="claim-actions">
         <button className="ghost small" onClick={() => setChainOpen(!chainOpen)}>
-          {chainOpen ? '收起' : '看'}证据链（{c.chain.length} 轮）
+          {chainOpen ? '收起' : '展开'}调查过程（{c.chain.length} 轮）
         </button>
         {watchState === 'done' ? (
           <button className="ghost small" onClick={() => go('/watch')}>已加入盯梢 ✓ 去看看</button>
@@ -226,15 +226,17 @@ function ClaimCard({ c, byId, reportId }: { c: ClaimResult; byId: Map<string, So
         </div>
       )}
 
+      {chainOpen && <p className="chain-title">调查过程</p>}
       {chainOpen && (
         <ol className="chain">
-          {c.chain.map((r) => (
+          {c.chain.map((r, k) => (
             <li key={r.round}>
               <b>第 {r.round} 轮</b>
+              {k > 0 && c.chain[k - 1].next_reason && <p className="why">↻ {c.chain[k - 1].next_reason}</p>}
               <ul>
                 {r.searches.map((s, i) => (
                   <li key={i}>
-                    🔍 「{s.query}」{s.error ? ` 失败：${s.error}` : ` → ${s.found} 条，新来源 ${s.new} 个`}
+                    🔍 元宝搜索「{s.query}」{s.error ? ` 失败：${s.error}` : ` → ${s.found} 条，新来源 ${s.new} 个`}
                     {s.sources.length > 0 && (
                       <span className="chain-src">
                         {s.sources.map((sid) => (
@@ -244,10 +246,17 @@ function ClaimCard({ c, byId, reportId }: { c: ClaimResult; byId: Map<string, So
                     )}
                   </li>
                 ))}
+                <li>⚖️ AI 阅读{r.sources ? ` ${r.sources} 个` : ''}网页，交叉比对</li>
+                {r.evidence !== undefined && (
+                  <li>
+                    {r.evidence ? `✅ 原文核对：${r.verified}/${r.evidence} 句在网页里找到` : '✅ 原文核对：没有能引用的原文'}
+                    {r.guard && <b className="guard-tag"> 核对不上，改判查不到</b>}
+                  </li>
+                )}
               </ul>
               <p>
-                → 判断：<span className={`mini-stamp v-${r.verdict}`}>{LABEL[r.verdict]}</span>{' '}
-                把握 {r.confidence}%
+                → <span className={`mini-stamp v-${r.verdict}`}>{LABEL[r.verdict]}</span> 把握 {r.confidence}%
+                {r.note && k < c.chain.length - 1 && <span className="note-line">{r.note}</span>}
               </p>
             </li>
           ))}

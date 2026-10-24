@@ -209,3 +209,39 @@ h2 { font-size: 18px; margin: 0; }
 .dock button { flex: 1; max-width: 220px; background-color: var(--card); }
 .dock .primary { background: var(--ink); }
 @media (max-width: 480px) { .watch-hint { flex-wrap: wrap; } }
+
+/* visible process */
+.timer { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+.stepper { list-style: none; padding: 0; margin: 0 0 12px; display: grid; grid-template-columns: repeat(5, 1fr); position: relative; }
+.stepper::before { content: ""; position: absolute; top: 13px; left: 10%; right: 10%; height: 2px; background: var(--line); }
+.stepper li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--muted); }
+.stepper .dot { color: var(--muted); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--card); border: 2px solid var(--line); }
+.stepper small { font-size: 11px; white-space: nowrap; }
+.stepper li.done .dot { background: var(--true); border-color: var(--true); color: #fff; }
+.stepper li.now { color: var(--ink); font-weight: 700; }
+.stepper li.now .dot { border-color: var(--accent); color: var(--accent); animation: pulse-ring 1.4s infinite; }
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+.live-stats { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+.live-stats b { color: var(--ink); font-size: 14px; }
+.thinking { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.thinking p { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+.skeleton { display: block; height: 12px; border-radius: 6px; margin: 6px 0; background: linear-gradient(90deg, var(--line) 25%, var(--paper) 50%, var(--line) 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
+.skeleton.short { width: 60%; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+.mini-spin { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin 0.8s linear infinite; vertical-align: -1px; flex: none; }
+.live-claim-head .mini-spin { width: 16px; height: 16px; margin-top: 4px; }
+.plan-q { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+.log { list-style: none; padding: 0; margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+.log li { padding: 3px 0; display: flex; gap: 6px; align-items: baseline; animation: fadein 0.3s; }
+.log .r { flex: none; font-size: 11px; color: var(--accent); font-weight: 700; min-width: 34px; }
+.log em { font-style: normal; color: var(--ink); }
+.log-search.error { color: var(--false); }
+.log-why { color: var(--mixed); }
+.log-verdict { color: var(--ink); }
+.note-line { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.guard-tag { color: var(--mixed); font-weight: 700; }
+.chain-title { font-weight: 700; font-size: 14px; margin: 14px 0 0; border-top: 1px dashed var(--line); padding-top: 10px; }
+.chain { list-style: none; padding-left: 0 !important; border-top: 0 !important; padding-top: 4px !important; }
+.chain > li { border-left: 2px solid var(--line); padding-left: 12px; margin-left: 4px; }
+.chain .why { color: var(--mixed); margin: 2px 0; }
+@media (max-width: 400px) { .stepper small { font-size: 10px; } }
