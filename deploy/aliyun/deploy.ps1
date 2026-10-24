@@ -19,7 +19,16 @@ $tar = Join-Path $env:TEMP "chadedao.tar.gz"
 tar -czf $tar --exclude=__pycache__ backend frontend/dist requirements.txt deploy .env
 $opts = @("-o", "StrictHostKeyChecking=accept-new")
 if ($Key) { $opts += @("-i", $Key) }
-scp @opts $tar "${User}@${Server}:/tmp/chadedao.tar.gz"
-ssh @opts "${User}@${Server}" "rm -rf /tmp/chadedao && mkdir -p /tmp/chadedao && tar -xzf /tmp/chadedao.tar.gz -C /tmp/chadedao && cd /tmp/chadedao && sudo SERVER_NAME='$ServerName' bash deploy/aliyun/setup.sh"
+# The bundle carries .env (API keys): upload it into a directory only we can read, and delete it
+# afterwards whether or not setup succeeded.
+# mktemp makes a fresh 0700 directory nobody else can have planted; the rm clears bundles older deploys left behind.
+$remote = (ssh @opts "${User}@${Server}" "rm -rf /tmp/chadedao /tmp/chadedao.tar.gz; mktemp -d /tmp/chadedao.XXXXXXXX" | Select-Object -Last 1)
+if ($LASTEXITCODE -ne 0 -or -not $remote) { Remove-Item $tar -Force; Write-Host "Could not reach the server"; exit 1 }
+$remote = $remote.Trim()
+scp @opts $tar "${User}@${Server}:$remote/app.tar.gz"
+$scpExit = $LASTEXITCODE
+Remove-Item $tar -Force
+if ($scpExit -ne 0) { Write-Host "Upload failed"; exit 1 }
+ssh @opts "${User}@${Server}" "cd $remote && tar -xzf app.tar.gz && sudo SERVER_NAME='$ServerName' bash deploy/aliyun/setup.sh; code=`$?; cd / && rm -rf $remote; exit `$code"
 if ($LASTEXITCODE -ne 0) { Write-Host "Deploy failed (see above)"; exit 1 }
 Write-Host "Open http://$(if ($ServerName) { $ServerName } else { $Server })"

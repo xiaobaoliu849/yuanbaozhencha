@@ -1,6 +1,7 @@
 """Change alerts for 盯梢: PushPlus (微信推送) per watch, plus an optional owner webhook."""
 from __future__ import annotations
 
+import html
 import logging
 import os
 from typing import Any
@@ -11,11 +12,19 @@ logger = logging.getLogger(__name__)
 PUSHPLUS = "https://www.pushplus.plus/send"
 
 
-async def changed(watch: dict[str, Any], token: str, link: str) -> None:
+def message(watch: dict[str, Any], link: str) -> tuple[str, str]:
+    """Title and HTML body of a change alert. The claim and explanation come from user text via the model, so escape them."""
     labels = {"true": "属实", "false": "不实", "mixed": "部分属实", "unknown": "查不到"}
     title = f"盯梢提醒：结论从「{labels.get(watch['previous_verdict'], '?')}」变成「{labels.get(watch['verdict'], '?')}」"
     last = watch["history"][-1] if watch["history"] else {}
-    body = f"<p><b>{watch['claim']}</b></p><p>{last.get('explanation', '')}</p><p><a href=\"{link}\">查看证据</a></p>"
+    esc = html.escape
+    body = (f"<p><b>{esc(watch['claim'])}</b></p><p>{esc(str(last.get('explanation', '')))}</p>"
+            f"<p><a href=\"{esc(link)}\">查看证据</a></p>")
+    return title, body
+
+
+async def changed(watch: dict[str, Any], token: str, link: str) -> None:
+    title, body = message(watch, link)
     async with httpx.AsyncClient(timeout=10) as http:
         if token:
             try:

@@ -62,7 +62,11 @@ export default function Watches({ onCount }: { onCount: (n: number) => void }) {
               </p>
             )}
             {!w.changed && last && last.verdict !== w.verdict && (
-              <p className="hint">最近一次复查得到「{LABEL[last.verdict]}」，把握不高，再查一次确认后才算结论变化。</p>
+              <p className="hint">
+                {last.verdict === 'unknown'
+                  ? '最近一次复查没搜到足够的来源，结论先保持不变。'
+                  : `最近一次复查得到「${LABEL[last.verdict]}」，把握不高，再查一次确认后才算结论变化。`}
+              </p>
             )}
             {last && <p className="explain">{last.explanation}</p>}
             {last?.sources.length > 0 && (

@@ -70,7 +70,8 @@ _usage: dict[tuple[str, date], int] = defaultdict(int)
 
 def _client_ip(request: Request) -> str:
     # Never read X-Forwarded-For here: clients can write anything in it. uvicorn's --proxy-headers
-    # fills request.client from it only when the request came through a trusted proxy (our nginx).
+    # fills request.client from it only when the request came through a trusted proxy (our nginx, or
+    # the platform proxy listed in the Dockerfile's FORWARDED_ALLOW_IPS).
     return request.client.host if request.client else "?"
 
 

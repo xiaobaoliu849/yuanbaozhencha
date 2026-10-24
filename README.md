@@ -38,6 +38,8 @@ Windows 双击 `run_local.bat`，macOS / Linux 运行 `./run_local.sh`。第一�
 
 然后打开 http://localhost:8000 。
 
+跑单元测试：`pip install -r requirements-dev.txt`，然后 `python -m pytest`。
+
 装好之后，Windows 上以后双击 `start_app.vbs` 就行：后台启动、不弹黑窗口，直接打开一个独立的应用窗口；双击 `stop_app.vbs` 关闭。
 
 ## 部署
@@ -66,6 +68,7 @@ Windows 双击 `run_local.bat`，macOS / Linux 运行 `./run_local.sh`。第一�
 | `WATCH_INTERVAL_HOURS` | 盯梢复查间隔，默认 24 |
 | `DAILY_LIMIT` | 每个 IP 每天最多查几次，默认 40 |
 | `ALERT_WEBHOOK_URL` | 可选，结论变化时 POST 一份 JSON |
+| `FORWARDED_ALLOW_IPS` | Docker 部署时信任哪些代理的 `X-Forwarded-For`，默认只信私有网段（平台自己的代理）；前面再套 CDN 时要加上 CDN 的网段 |
 | `YUANBAO_EXTRA` | 可选，追加到搜索请求体的 JSON，如 `{"Cnt": 10}` |
 
 不查时政和涉及个人隐私的消息。

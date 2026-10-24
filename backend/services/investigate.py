@@ -28,6 +28,8 @@ STALE_DAYS = 730
 # Users are in China and Beijing has no DST, so a fixed offset avoids needing tzdata on Windows.
 BEIJING = timezone(timedelta(hours=8))
 VERDICTS = {"true": "属实", "false": "不实", "mixed": "部分属实", "unknown": "查不到"}
+# Which quote stances can carry each verdict.
+BACKS = {"true": ("support",), "false": ("refute",), "mixed": ("support", "refute")}
 
 Emit = Callable[[dict[str, Any]], Awaitable[None]]
 
@@ -67,6 +69,7 @@ JUDGE = """你是严谨的事实核查员。今天是 {today}。只能依据下�
 判断规则：
 - true=属实，false=不实，mixed=部分属实或要看条件，unknown=来源不足以判断。
 - 每个判断必须引用来源编号，并从该来源的摘录里原样摘一句话作为 quote（必须是摘录里出现过的原文）。
+- stance 是这句原文对「要查证的说法」本身的态度，不是对你结论的态度：support=原文说明这条说法是对的，refute=原文说明这条说法是错的，context=只是背景、不直接证明对错。判 true 至少要有一句 support，判 false 至少要有一句 refute，否则会被改判为「查不到」。
 - 优先相信官方机构、权威媒体、专业机构的来源；自媒体、营销号的说法要打折扣。来源之间互相矛盾时写进 conflicts。
 - 引用的原文必须正面说到这一件事本身（同一个主体、同一个动作、时间/数字对得上）。同一篇文章里讲别的事的句子不能当证据；说法里有几个细节（时间、数字、名称），要分别有原文对上，对不上的细节写进 explanation。
 - 标了「资讯汇总」的是新闻合集、日报周报或转载，它们只是复述别人的标题。几篇汇总说同一句话只算一个弱来源；要判 true/false 并给高把握，最好找到原始出处（当事机构/公司官网、官方账号）或权威媒体的报道，找不到就降低把握，并在 next_queries 里去搜原始出处。
@@ -199,8 +202,9 @@ def _check(judged: dict[str, Any], claim: str, seen: list[str], pool: SourcePool
         confidence = 0
     explanation = str(judged.get("explanation", ""))
     guard = ""
-    if verdict != "unknown" and not any(e["quote_found"] for e in evidence):
-        guard = f"AI 本来想判「{VERDICTS[verdict]}」，但它引用的原文在搜到的网页里核对不上，按规则改判为「查不到」。"
+    # A verified 「背景」 quote does not back a verdict: true needs a verified support, false a verified refute.
+    if verdict != "unknown" and not any(e["quote_found"] and e["stance"] in BACKS[verdict] for e in evidence):
+        guard = f"AI 本来想判「{VERDICTS[verdict]}」，但支撑这个结论的原文在搜到的网页里核对不上，按规则改判为「查不到」。"
         verdict, confidence = "unknown", min(confidence, 30)
         explanation = "搜到的来源不足以确认这条说法，先不下结论。"
     caution = ""

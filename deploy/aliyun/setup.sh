@@ -39,10 +39,17 @@ if command -v apt-get >/dev/null && ! "$PY" -c 'import ensurepip' >/dev/null 2>&
 fi
 echo "Using $PY"
 
+# The service runs as its own unprivileged user; only it (and root) can read .env and the database.
+APP_USER=chadedao
+id "$APP_USER" >/dev/null 2>&1 || useradd -r -U -M -d "$APP_DIR" -s "$(command -v nologin || echo /bin/false)" "$APP_USER"
+
 mkdir -p "$APP_DIR/data"
 cp -r backend requirements.txt "$APP_DIR/"
 mkdir -p "$APP_DIR/frontend" && rm -rf "$APP_DIR/frontend/dist" && cp -r frontend/dist "$APP_DIR/frontend/"
-[ -f .env ] && cp .env "$APP_DIR/.env"
+if [ -f .env ]; then cp .env "$APP_DIR/.env"; fi
+if [ -f "$APP_DIR/.env" ]; then chown "$APP_USER:$APP_USER" "$APP_DIR/.env"; chmod 600 "$APP_DIR/.env"; fi
+chown -R "$APP_USER:$APP_USER" "$APP_DIR/data"
+chmod 700 "$APP_DIR/data"
 
 [ -x "$APP_DIR/venv/bin/pip" ] || { rm -rf "$APP_DIR/venv"; "$PY" -m venv "$APP_DIR/venv"; }
 "$APP_DIR/venv/bin/pip" install -q -i "$PIP_MIRROR" --upgrade pip
@@ -54,6 +61,11 @@ Description=查得到，信得过
 After=network-online.target
 
 [Service]
+User=$APP_USER
+Group=$APP_USER
+# Lets the unprivileged user listen on port 80 when there is no nginx in front.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
 WorkingDirectory=$APP_DIR
 Environment=DATA_DIR=$APP_DIR/data
 ExecStart=$APP_DIR/venv/bin/uvicorn backend.main:app --host $HOST --port $PORT $PROXY_ARGS

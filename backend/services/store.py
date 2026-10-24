@@ -128,9 +128,10 @@ def record_check(wid: str, result: dict[str, Any], sources: list[dict[str, Any]]
              "explanation": result["explanation"], "sources": _top_sources(result, sources)}
     # The model wobbles between runs, so a new verdict only counts once it is confident or comes out
     # the same twice in a row; until then the watch keeps its old verdict and the check sits in history.
+    # 「查不到」 never counts: it is what an outage or a spent search quota looks like, not news.
     last = w["history"][-1]["verdict"] if w["history"] else None
-    changed = result["verdict"] != w["verdict"] and (result["confidence"] >= CONFIRM_CONFIDENCE
-                                                     or result["verdict"] == last)
+    changed = (result["verdict"] not in (w["verdict"], "unknown")
+               and (result["confidence"] >= CONFIRM_CONFIDENCE or result["verdict"] == last))
     verdict = result["verdict"] if changed else w["verdict"]
     history = (w["history"] + [entry])[-30:]
     with _lock:
