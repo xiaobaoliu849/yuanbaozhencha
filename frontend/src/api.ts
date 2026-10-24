@@ -183,17 +183,29 @@ export const recheckWatch = (owner: string, id: string) => json<Watch>(`/api/wat
 export const ackWatch = (owner: string, id: string) => json<{ ok: boolean }>(`/api/watches/${id}/ack`, post({ owner }))
 export const stopWatch = (owner: string, id: string) => json<{ ok: boolean }>(`/api/watches/${id}/stop`, post({ owner }))
 
+let memoOwner = ''
+
+/** A random id per browser. crypto.randomUUID only exists on HTTPS/localhost, so build it from getRandomValues. */
+function randomId(): string {
+  const b = new Uint8Array(16)
+  crypto.getRandomValues(b)
+  return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('')
+}
+
 export function ownerId(): string {
+  if (memoOwner) return memoOwner
   try {
     let id = localStorage.getItem('chade-owner')
     if (!id) {
-      id = crypto.randomUUID()
+      id = randomId()
       localStorage.setItem('chade-owner', id)
     }
-    return id
+    memoOwner = id
   } catch {
-    return 'anon-' + Math.random().toString(36).slice(2, 12)
+    // No storage (private mode): keep one id for this page session at least.
+    memoOwner = 'anon-' + randomId()
   }
+  return memoOwner
 }
 
 /** Shrink a screenshot to at most 1600px on its long side and return base64 JPEG (no data: prefix). */
