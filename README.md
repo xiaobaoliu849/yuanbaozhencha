@@ -59,7 +59,7 @@ Windows 双击 `run_local.bat`，macOS / Linux 运行 `./run_local.sh`。第一�
 | `LLM_API_KEY` | OpenAI 兼容接口的 Key（不填则全用 Gemini） |
 | `LLM_BASE_URL` | 接口地址，默认 `https://hkg.toklens.ai/v1` |
 | `LLM_MODEL` | 模型名；不填自动选 deepseek-v4-flash，可用模型见 `/api/models` |
-| `LLM_VISION_MODEL` | 能看图的模型名，用于截图识别（没有 Gemini 时） |
+| `LLM_VISION_MODEL` | 能看图的模型名，用于截图识别（Toklens 上用 deepseek-v4.1-flash） |
 | `GEMINI_API_KEY` | 可选，用来识别截图 |
 | `PUBLIC_URL` | 对外地址，用于提醒里的报告链接 |
 | `CRON_TOKEN` | `/api/cron` 的口令 |
